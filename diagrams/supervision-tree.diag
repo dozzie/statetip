@@ -1,0 +1,28 @@
+blockdiag {
+  orientation = portrait;
+  default_shape = roundedbox;
+
+  node_width = 148;
+  //span_width = 40;
+
+  statip_sup -> statip_log;
+  statip_sup -> statip_registry;
+  statip_sup -> statip_value_sup;
+  statip_sup -> statip_input_sup;
+
+  statip_value_sup -> statip_value_single_sup;
+  statip_value_sup -> statip_value_burst_sup;
+  //statip_value_sup -> statip_value_loader;
+  statip_value_single_sup -> statip_value_single;
+  statip_value_burst_sup  -> statip_value_burst;
+
+  statip_input_sup -> statip_input_client_sup;
+  statip_input_sup -> statip_input_listener;
+  statip_input_client_sup -> statip_input_client;
+
+  statip_value_single [stacked];
+  statip_value_burst  [stacked];
+  statip_input_client [stacked];
+}
+
+// vim:ft=dot

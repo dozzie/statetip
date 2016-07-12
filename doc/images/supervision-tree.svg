@@ -1,0 +1,119 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.0//EN" "http://www.w3.org/TR/2001/REC-SVG-20010904/DTD/svg10.dtd">
+<svg viewBox="0 0 1336 360" xmlns="http://www.w3.org/2000/svg" xmlns:inkspace="http://www.inkscape.org/namespaces/inkscape" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <defs id="defs_block">
+    <filter height="1.504" id="filter_blur" inkspace:collect="always" width="1.1575" x="-0.07875" y="-0.252">
+      <feGaussianBlur id="feGaussianBlur3780" inkspace:collect="always" stdDeviation="4.2" />
+    </filter>
+  </defs>
+  <title>blockdiag</title>
+  <desc>blockdiag {
+  orientation = portrait;
+  default_shape = roundedbox;
+
+  node_width = 148;
+  //span_width = 40;
+
+  statip_sup -&gt; statip_log;
+  statip_sup -&gt; statip_registry;
+  statip_sup -&gt; statip_value_sup;
+  statip_sup -&gt; statip_input_sup;
+
+  statip_value_sup -&gt; statip_value_single_sup;
+  statip_value_sup -&gt; statip_value_burst_sup;
+  //statip_value_sup -&gt; statip_value_loader;
+  statip_value_single_sup -&gt; statip_value_single;
+  statip_value_burst_sup  -&gt; statip_value_burst;
+
+  statip_input_sup -&gt; statip_input_client_sup;
+  statip_input_sup -&gt; statip_input_listener;
+  statip_input_client_sup -&gt; statip_input_client;
+
+  statip_value_single [stacked];
+  statip_value_burst  [stacked];
+  statip_input_client [stacked];
+}
+
+// vim:ft=dot
+</desc>
+  <path d="M 75 46 L 207 46 A8,8 0 0 1 215 54 L 215 78 A8,8 0 0 1 207 86 L 75 86 A8,8 0 0 1 67 78 L 67 54 A8,8 0 0 1 75 46" fill="rgb(0,0,0)" stroke="rgb(0,0,0)" style="filter:url(#filter_blur);opacity:0.7;fill-opacity:1" />
+  <path d="M 75 126 L 207 126 A8,8 0 0 1 215 134 L 215 158 A8,8 0 0 1 207 166 L 75 166 A8,8 0 0 1 67 158 L 67 134 A8,8 0 0 1 75 126" fill="rgb(0,0,0)" stroke="rgb(0,0,0)" style="filter:url(#filter_blur);opacity:0.7;fill-opacity:1" />
+  <path d="M 287 126 L 419 126 A8,8 0 0 1 427 134 L 427 158 A8,8 0 0 1 419 166 L 287 166 A8,8 0 0 1 279 158 L 279 134 A8,8 0 0 1 287 126" fill="rgb(0,0,0)" stroke="rgb(0,0,0)" style="filter:url(#filter_blur);opacity:0.7;fill-opacity:1" />
+  <path d="M 499 126 L 631 126 A8,8 0 0 1 639 134 L 639 158 A8,8 0 0 1 631 166 L 499 166 A8,8 0 0 1 491 158 L 491 134 A8,8 0 0 1 499 126" fill="rgb(0,0,0)" stroke="rgb(0,0,0)" style="filter:url(#filter_blur);opacity:0.7;fill-opacity:1" />
+  <path d="M 923 126 L 1055 126 A8,8 0 0 1 1063 134 L 1063 158 A8,8 0 0 1 1055 166 L 923 166 A8,8 0 0 1 915 158 L 915 134 A8,8 0 0 1 923 126" fill="rgb(0,0,0)" stroke="rgb(0,0,0)" style="filter:url(#filter_blur);opacity:0.7;fill-opacity:1" />
+  <path d="M 499 206 L 631 206 A8,8 0 0 1 639 214 L 639 238 A8,8 0 0 1 631 246 L 499 246 A8,8 0 0 1 491 238 L 491 214 A8,8 0 0 1 499 206" fill="rgb(0,0,0)" stroke="rgb(0,0,0)" style="filter:url(#filter_blur);opacity:0.7;fill-opacity:1" />
+  <path d="M 711 206 L 843 206 A8,8 0 0 1 851 214 L 851 238 A8,8 0 0 1 843 246 L 711 246 A8,8 0 0 1 703 238 L 703 214 A8,8 0 0 1 711 206" fill="rgb(0,0,0)" stroke="rgb(0,0,0)" style="filter:url(#filter_blur);opacity:0.7;fill-opacity:1" />
+  <path d="M 507 294 L 639 294 A8,8 0 0 1 647 302 L 647 326 A8,8 0 0 1 639 334 L 507 334 A8,8 0 0 1 499 326 L 499 302 A8,8 0 0 1 507 294" fill="rgb(0,0,0)" stroke="rgb(0,0,0)" style="filter:url(#filter_blur);opacity:0.7;fill-opacity:1" />
+  <path d="M 503 290 L 635 290 A8,8 0 0 1 643 298 L 643 322 A8,8 0 0 1 635 330 L 503 330 A8,8 0 0 1 495 322 L 495 298 A8,8 0 0 1 503 290" fill="rgb(0,0,0)" stroke="rgb(0,0,0)" style="filter:url(#filter_blur);opacity:0.7;fill-opacity:1" />
+  <path d="M 499 286 L 631 286 A8,8 0 0 1 639 294 L 639 318 A8,8 0 0 1 631 326 L 499 326 A8,8 0 0 1 491 318 L 491 294 A8,8 0 0 1 499 286" fill="rgb(0,0,0)" stroke="rgb(0,0,0)" style="filter:url(#filter_blur);opacity:0.7;fill-opacity:1" />
+  <path d="M 719 294 L 851 294 A8,8 0 0 1 859 302 L 859 326 A8,8 0 0 1 851 334 L 719 334 A8,8 0 0 1 711 326 L 711 302 A8,8 0 0 1 719 294" fill="rgb(0,0,0)" stroke="rgb(0,0,0)" style="filter:url(#filter_blur);opacity:0.7;fill-opacity:1" />
+  <path d="M 715 290 L 847 290 A8,8 0 0 1 855 298 L 855 322 A8,8 0 0 1 847 330 L 715 330 A8,8 0 0 1 707 322 L 707 298 A8,8 0 0 1 715 290" fill="rgb(0,0,0)" stroke="rgb(0,0,0)" style="filter:url(#filter_blur);opacity:0.7;fill-opacity:1" />
+  <path d="M 711 286 L 843 286 A8,8 0 0 1 851 294 L 851 318 A8,8 0 0 1 843 326 L 711 326 A8,8 0 0 1 703 318 L 703 294 A8,8 0 0 1 711 286" fill="rgb(0,0,0)" stroke="rgb(0,0,0)" style="filter:url(#filter_blur);opacity:0.7;fill-opacity:1" />
+  <path d="M 923 206 L 1055 206 A8,8 0 0 1 1063 214 L 1063 238 A8,8 0 0 1 1055 246 L 923 246 A8,8 0 0 1 915 238 L 915 214 A8,8 0 0 1 923 206" fill="rgb(0,0,0)" stroke="rgb(0,0,0)" style="filter:url(#filter_blur);opacity:0.7;fill-opacity:1" />
+  <path d="M 1135 206 L 1267 206 A8,8 0 0 1 1275 214 L 1275 238 A8,8 0 0 1 1267 246 L 1135 246 A8,8 0 0 1 1127 238 L 1127 214 A8,8 0 0 1 1135 206" fill="rgb(0,0,0)" stroke="rgb(0,0,0)" style="filter:url(#filter_blur);opacity:0.7;fill-opacity:1" />
+  <path d="M 931 294 L 1063 294 A8,8 0 0 1 1071 302 L 1071 326 A8,8 0 0 1 1063 334 L 931 334 A8,8 0 0 1 923 326 L 923 302 A8,8 0 0 1 931 294" fill="rgb(0,0,0)" stroke="rgb(0,0,0)" style="filter:url(#filter_blur);opacity:0.7;fill-opacity:1" />
+  <path d="M 927 290 L 1059 290 A8,8 0 0 1 1067 298 L 1067 322 A8,8 0 0 1 1059 330 L 927 330 A8,8 0 0 1 919 322 L 919 298 A8,8 0 0 1 927 290" fill="rgb(0,0,0)" stroke="rgb(0,0,0)" style="filter:url(#filter_blur);opacity:0.7;fill-opacity:1" />
+  <path d="M 923 286 L 1055 286 A8,8 0 0 1 1063 294 L 1063 318 A8,8 0 0 1 1055 326 L 923 326 A8,8 0 0 1 915 318 L 915 294 A8,8 0 0 1 923 286" fill="rgb(0,0,0)" stroke="rgb(0,0,0)" style="filter:url(#filter_blur);opacity:0.7;fill-opacity:1" />
+  <path d="M 72 40 L 204 40 A8,8 0 0 1 212 48 L 212 72 A8,8 0 0 1 204 80 L 72 80 A8,8 0 0 1 64 72 L 64 48 A8,8 0 0 1 72 40" fill="rgb(255,255,255)" stroke="rgb(0,0,0)" />
+  <text fill="rgb(0,0,0)" font-family="sansserif" font-size="11" font-style="normal" font-weight="normal" x="108" y="66">statip_sup</text>
+  <path d="M 72 120 L 204 120 A8,8 0 0 1 212 128 L 212 152 A8,8 0 0 1 204 160 L 72 160 A8,8 0 0 1 64 152 L 64 128 A8,8 0 0 1 72 120" fill="rgb(255,255,255)" stroke="rgb(0,0,0)" />
+  <text fill="rgb(0,0,0)" font-family="sansserif" font-size="11" font-style="normal" font-weight="normal" x="108" y="146">statip_log</text>
+  <path d="M 284 120 L 416 120 A8,8 0 0 1 424 128 L 424 152 A8,8 0 0 1 416 160 L 284 160 A8,8 0 0 1 276 152 L 276 128 A8,8 0 0 1 284 120" fill="rgb(255,255,255)" stroke="rgb(0,0,0)" />
+  <text fill="rgb(0,0,0)" font-family="sansserif" font-size="11" font-style="normal" font-weight="normal" x="305" y="146">statip_registry</text>
+  <path d="M 496 120 L 628 120 A8,8 0 0 1 636 128 L 636 152 A8,8 0 0 1 628 160 L 496 160 A8,8 0 0 1 488 152 L 488 128 A8,8 0 0 1 496 120" fill="rgb(255,255,255)" stroke="rgb(0,0,0)" />
+  <text fill="rgb(0,0,0)" font-family="sansserif" font-size="11" font-style="normal" font-weight="normal" x="514" y="146">statip_value_sup</text>
+  <path d="M 920 120 L 1052 120 A8,8 0 0 1 1060 128 L 1060 152 A8,8 0 0 1 1052 160 L 920 160 A8,8 0 0 1 912 152 L 912 128 A8,8 0 0 1 920 120" fill="rgb(255,255,255)" stroke="rgb(0,0,0)" />
+  <text fill="rgb(0,0,0)" font-family="sansserif" font-size="11" font-style="normal" font-weight="normal" x="938" y="146">statip_input_sup</text>
+  <path d="M 496 200 L 628 200 A8,8 0 0 1 636 208 L 636 232 A8,8 0 0 1 628 240 L 496 240 A8,8 0 0 1 488 232 L 488 208 A8,8 0 0 1 496 200" fill="rgb(255,255,255)" stroke="rgb(0,0,0)" />
+  <text fill="rgb(0,0,0)" font-family="sansserif" font-size="11" font-style="normal" font-weight="normal" x="493" y="226">statip_value_single_sup</text>
+  <path d="M 708 200 L 840 200 A8,8 0 0 1 848 208 L 848 232 A8,8 0 0 1 840 240 L 708 240 A8,8 0 0 1 700 232 L 700 208 A8,8 0 0 1 708 200" fill="rgb(255,255,255)" stroke="rgb(0,0,0)" />
+  <text fill="rgb(0,0,0)" font-family="sansserif" font-size="11" font-style="normal" font-weight="normal" x="708" y="226">statip_value_burst_sup</text>
+  <path d="M 504 288 L 636 288 A8,8 0 0 1 644 296 L 644 320 A8,8 0 0 1 636 328 L 504 328 A8,8 0 0 1 496 320 L 496 296 A8,8 0 0 1 504 288" fill="rgb(255,255,255)" stroke="rgb(0,0,0)" />
+  <path d="M 500 284 L 632 284 A8,8 0 0 1 640 292 L 640 316 A8,8 0 0 1 632 324 L 500 324 A8,8 0 0 1 492 316 L 492 292 A8,8 0 0 1 500 284" fill="rgb(255,255,255)" stroke="rgb(0,0,0)" />
+  <path d="M 496 280 L 628 280 A8,8 0 0 1 636 288 L 636 312 A8,8 0 0 1 628 320 L 496 320 A8,8 0 0 1 488 312 L 488 288 A8,8 0 0 1 496 280" fill="rgb(255,255,255)" stroke="rgb(0,0,0)" />
+  <text fill="rgb(0,0,0)" font-family="sansserif" font-size="11" font-style="normal" font-weight="normal" x="505" y="306">statip_value_single</text>
+  <path d="M 716 288 L 848 288 A8,8 0 0 1 856 296 L 856 320 A8,8 0 0 1 848 328 L 716 328 A8,8 0 0 1 708 320 L 708 296 A8,8 0 0 1 716 288" fill="rgb(255,255,255)" stroke="rgb(0,0,0)" />
+  <path d="M 712 284 L 844 284 A8,8 0 0 1 852 292 L 852 316 A8,8 0 0 1 844 324 L 712 324 A8,8 0 0 1 704 316 L 704 292 A8,8 0 0 1 712 284" fill="rgb(255,255,255)" stroke="rgb(0,0,0)" />
+  <path d="M 708 280 L 840 280 A8,8 0 0 1 848 288 L 848 312 A8,8 0 0 1 840 320 L 708 320 A8,8 0 0 1 700 312 L 700 288 A8,8 0 0 1 708 280" fill="rgb(255,255,255)" stroke="rgb(0,0,0)" />
+  <text fill="rgb(0,0,0)" font-family="sansserif" font-size="11" font-style="normal" font-weight="normal" x="720" y="306">statip_value_burst</text>
+  <path d="M 920 200 L 1052 200 A8,8 0 0 1 1060 208 L 1060 232 A8,8 0 0 1 1052 240 L 920 240 A8,8 0 0 1 912 232 L 912 208 A8,8 0 0 1 920 200" fill="rgb(255,255,255)" stroke="rgb(0,0,0)" />
+  <text fill="rgb(0,0,0)" font-family="sansserif" font-size="11" font-style="normal" font-weight="normal" x="917" y="226">statip_input_client_sup</text>
+  <path d="M 1132 200 L 1264 200 A8,8 0 0 1 1272 208 L 1272 232 A8,8 0 0 1 1264 240 L 1132 240 A8,8 0 0 1 1124 232 L 1124 208 A8,8 0 0 1 1132 200" fill="rgb(255,255,255)" stroke="rgb(0,0,0)" />
+  <text fill="rgb(0,0,0)" font-family="sansserif" font-size="11" font-style="normal" font-weight="normal" x="1135" y="226">statip_input_listener</text>
+  <path d="M 928 288 L 1060 288 A8,8 0 0 1 1068 296 L 1068 320 A8,8 0 0 1 1060 328 L 928 328 A8,8 0 0 1 920 320 L 920 296 A8,8 0 0 1 928 288" fill="rgb(255,255,255)" stroke="rgb(0,0,0)" />
+  <path d="M 924 284 L 1056 284 A8,8 0 0 1 1064 292 L 1064 316 A8,8 0 0 1 1056 324 L 924 324 A8,8 0 0 1 916 316 L 916 292 A8,8 0 0 1 924 284" fill="rgb(255,255,255)" stroke="rgb(0,0,0)" />
+  <path d="M 920 280 L 1052 280 A8,8 0 0 1 1060 288 L 1060 312 A8,8 0 0 1 1052 320 L 920 320 A8,8 0 0 1 912 312 L 912 288 A8,8 0 0 1 920 280" fill="rgb(255,255,255)" stroke="rgb(0,0,0)" />
+  <text fill="rgb(0,0,0)" font-family="sansserif" font-size="11" font-style="normal" font-weight="normal" x="929" y="306">statip_input_client</text>
+  <path d="M 138 80 L 138 100" fill="none" stroke="rgb(0,0,0)" />
+  <path d="M 138 100 L 986 100" fill="none" stroke="rgb(0,0,0)" />
+  <path d="M 986 100 L 986 112" fill="none" stroke="rgb(0,0,0)" />
+  <polygon fill="rgb(0,0,0)" points="986,119 982,112 990,112 986,119" stroke="rgb(0,0,0)" />
+  <path d="M 138 80 L 138 112" fill="none" stroke="rgb(0,0,0)" />
+  <polygon fill="rgb(0,0,0)" points="138,119 134,112 142,112 138,119" stroke="rgb(0,0,0)" />
+  <path d="M 138 80 L 138 100" fill="none" stroke="rgb(0,0,0)" />
+  <path d="M 138 100 L 562 100" fill="none" stroke="rgb(0,0,0)" />
+  <path d="M 562 100 L 562 112" fill="none" stroke="rgb(0,0,0)" />
+  <polygon fill="rgb(0,0,0)" points="562,119 558,112 566,112 562,119" stroke="rgb(0,0,0)" />
+  <path d="M 138 80 L 138 100" fill="none" stroke="rgb(0,0,0)" />
+  <path d="M 138 100 L 350 100" fill="none" stroke="rgb(0,0,0)" />
+  <path d="M 350 100 L 350 112" fill="none" stroke="rgb(0,0,0)" />
+  <polygon fill="rgb(0,0,0)" points="350,119 346,112 354,112 350,119" stroke="rgb(0,0,0)" />
+  <path d="M 562 160 L 562 192" fill="none" stroke="rgb(0,0,0)" />
+  <polygon fill="rgb(0,0,0)" points="562,199 558,192 566,192 562,199" stroke="rgb(0,0,0)" />
+  <path d="M 562 160 L 562 180" fill="none" stroke="rgb(0,0,0)" />
+  <path d="M 562 180 L 774 180" fill="none" stroke="rgb(0,0,0)" />
+  <path d="M 774 180 L 774 192" fill="none" stroke="rgb(0,0,0)" />
+  <polygon fill="rgb(0,0,0)" points="774,199 770,192 778,192 774,199" stroke="rgb(0,0,0)" />
+  <path d="M 986 160 L 986 192" fill="none" stroke="rgb(0,0,0)" />
+  <polygon fill="rgb(0,0,0)" points="986,199 982,192 990,192 986,199" stroke="rgb(0,0,0)" />
+  <path d="M 986 160 L 986 180" fill="none" stroke="rgb(0,0,0)" />
+  <path d="M 986 180 L 1198 180" fill="none" stroke="rgb(0,0,0)" />
+  <path d="M 1198 180 L 1198 192" fill="none" stroke="rgb(0,0,0)" />
+  <polygon fill="rgb(0,0,0)" points="1198,199 1194,192 1202,192 1198,199" stroke="rgb(0,0,0)" />
+  <path d="M 562 240 L 562 272" fill="none" stroke="rgb(0,0,0)" />
+  <polygon fill="rgb(0,0,0)" points="562,279 558,272 566,272 562,279" stroke="rgb(0,0,0)" />
+  <path d="M 774 240 L 774 272" fill="none" stroke="rgb(0,0,0)" />
+  <polygon fill="rgb(0,0,0)" points="774,279 770,272 778,272 774,279" stroke="rgb(0,0,0)" />
+  <path d="M 986 240 L 986 272" fill="none" stroke="rgb(0,0,0)" />
+  <polygon fill="rgb(0,0,0)" points="986,279 982,272 990,272 986,279" stroke="rgb(0,0,0)" />
+</svg>
