@@ -4,7 +4,7 @@ StateTip recent state registry
 StateTip is an application intended for remembering most recent values for
 different variables collected by a monitoring system.
 
-This allow monitoring probe to simply read the current state of the thing
+This allows monitoring probe to simply read the current state of the thing
 being monitored (e.g. network link status) in regular intervals and send the
 result out. StateTip receives such a state, remembers it, and allows some
 dashboard to read what was the most recent state.
