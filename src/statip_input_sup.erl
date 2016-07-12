@@ -37,10 +37,10 @@ init([] = _Args) ->
   Children = [
     {statip_input_client_sup,
       {statip_input_client_sup, start_link, []},
-      permanent, 5000, supervisor, [statip_input_client_sup]}
-    %{statip_input_listener,
-    %  {statip_input_listener, start_link, []},
-    %  permanent, 5000, worker, [statip_input_listener]}
+      permanent, 5000, supervisor, [statip_input_client_sup]},
+    {statip_input_listener,
+      {statip_input_listener, start_link, []},
+      permanent, 5000, worker, [statip_input_listener]}
   ],
   {ok, {Strategy, Children}}.
 

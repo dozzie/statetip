@@ -9,11 +9,21 @@
 
 -behaviour(supervisor).
 
+%% public interface
+-export([spawn_worker/1]).
+
 %% supervision tree API
 -export([start_link/0]).
 
 %% supervisor callbacks
 -export([init/1]).
+
+%%%---------------------------------------------------------------------------
+%%% public interface
+%%%---------------------------------------------------------------------------
+
+spawn_worker(Socket) ->
+  supervisor:start_child(?MODULE, [Socket]).
 
 %%%---------------------------------------------------------------------------
 %%% supervision tree API

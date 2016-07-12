@@ -4,5 +4,7 @@
   {registered, []},
   {applications, [kernel, stdlib]},
   {mod, {statip_app, []}},
-  {env, []}
+  {env, [
+    {listen, {localhost, 3012}}
+  ]}
 ]}.
