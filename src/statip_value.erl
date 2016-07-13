@@ -4,6 +4,8 @@
 %%%
 %%%   <b>TODO</b>: What do I call "value"? What do I call "record"? What is
 %%%   "name", "origin", and "key"?
+%%%
+%%%   <b>TODO</b>: `-include("statip_value.hrl").'
 %%% @end
 %%%---------------------------------------------------------------------------
 

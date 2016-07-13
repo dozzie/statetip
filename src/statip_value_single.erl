@@ -26,15 +26,7 @@
 %%%---------------------------------------------------------------------------
 %%% types {{{
 
--record(value, {
-  key      :: statip_value:key(),
-  sort_key :: statip_value:key(),
-  value    :: statip_value:value(),
-  severity :: statip_value:severity(),
-  info     :: statip_value:info(),
-  created  :: statip_value:timestamp(),
-  expires  :: statip_value:timestamp()
-}).
+-include("statip_value.hrl").
 
 -record(state, {
   value_name :: statip_value:name(),
