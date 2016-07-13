@@ -13,7 +13,7 @@
 -behaviour(gen_server).
 
 %% public interface
--export([add/7, list_keys/1]).
+-export([add/2, list_keys/1]).
 
 %% supervision tree API
 -export([start/2, start_link/2]).
@@ -58,21 +58,10 @@ start_link(ValueName, ValueOrigin) ->
 
 %% @doc Add/update record to a value registry.
 
--spec add(pid(), statip_value:key(), statip_value:value(),
-          statip_value:severity(), statip_value:info(),
-          statip_value:timestamp(), statip_value:expiry()) ->
+-spec add(pid(), #value{}) ->
   ok.
 
-add(Pid, Key, Value, Severity, Info, Created, Expiry) ->
-  Record = #value{
-    key = Key,
-    sort_key = Key,
-    value = Value,
-    severity = Severity,
-    info = Info,
-    created = Created,
-    expires = Created + Expiry
-  },
+add(Pid, Record = #value{}) ->
   gen_server:cast(Pid, {add, Record}).
 
 %% @doc List all keys from value registry.
