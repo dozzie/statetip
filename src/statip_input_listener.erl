@@ -53,7 +53,7 @@ start_link() ->
 %% @doc Initialize event handler.
 
 init(_Args) ->
-  {ok, {Addr, Port}} = application:get_env(statip, listen),
+  {ok, {Addr, Port}} = application:get_env(statip, input),
   case bind_opts(Addr) of
     {ok, BindOpts} ->
       Options = [

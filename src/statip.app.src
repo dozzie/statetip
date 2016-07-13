@@ -5,6 +5,9 @@
   {applications, [kernel, stdlib]},
   {mod, {statip_app, []}},
   {env, [
-    {listen, {localhost, 3012}}
+    {input, {localhost, 3012}},
+    {http,  {localhost, 3082}},
+    %{state_dir, "/var/lib/statetip"},
+    {default_expiry, 43200} % 12h
   ]}
 ]}.
