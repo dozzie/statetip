@@ -11,9 +11,10 @@
 -module(statip_value_single).
 
 -behaviour(gen_server).
+-behaviour(statip_value).
 
 %% public interface
--export([add/2, list_keys/1]).
+-export([spawn_keeper/2, add/2, list_keys/1]).
 
 %% supervision tree API
 -export([start/2, start_link/2]).
@@ -55,6 +56,14 @@ start_link(ValueName, ValueOrigin) ->
 %%%---------------------------------------------------------------------------
 %%% public interface
 %%%---------------------------------------------------------------------------
+
+%% @doc Spawn a new value keeper.
+
+-spec spawn_keeper(statip_value:name(), statip_value:origin()) ->
+  {ok, pid()} | ignore.
+
+spawn_keeper(ValueName, ValueOrigin) ->
+  statip_value_single_sup:spawn_keeper(ValueName, ValueOrigin).
 
 %% @doc Add/update record to a value registry.
 

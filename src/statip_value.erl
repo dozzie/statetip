@@ -6,13 +6,21 @@
 %%%   "name", "origin", and "key"?
 %%%
 %%%   <b>TODO</b>: `-include("statip_value.hrl").'
+%%%
+%%%   <b>TODO</b>: describe required callbacks (`spawn_keeper(ValueName,
+%%%   ValueOrigin)', `add(Pid, Record)' (should not die on noproc),
+%%%   `list_keys(Pid)' (may die on noproc))
+%%%
+%%% @todo Implement all the reading functions.
 %%% @end
 %%%---------------------------------------------------------------------------
 
 -module(statip_value).
 
-%% public interface
+%% general-purpose interface
 -export([timestamp/0]).
+%% value keepers interface
+-export([add/4, list_keys/2]).
 
 -export_type([name/0, origin/0, key/0]).
 -export_type([value/0, severity/0, info/0]).
@@ -20,6 +28,8 @@
 
 %%%---------------------------------------------------------------------------
 %%% type specification/documentation {{{
+
+-include("statip_value.hrl").
 
 -type name() :: binary().
 %% Value name.
@@ -52,8 +62,122 @@
 %%%---------------------------------------------------------------------------
 
 %%%---------------------------------------------------------------------------
-%%% public interface
+%%% value keepers callbacks
 %%%---------------------------------------------------------------------------
+
+-callback spawn_keeper(ValueName :: name(), ValueOrigin :: origin()) ->
+  {ok, pid()} | ignore | {error, term()}.
+
+-callback add(Pid :: pid(), Record :: #value{}) ->
+  ok.
+
+-callback list_keys(Pid :: pid()) ->
+  [key()].
+
+%%%---------------------------------------------------------------------------
+%%% value keepers interface
+%%%---------------------------------------------------------------------------
+
+%% @doc Remember a value in appropriate keeper.
+%%   If a value's type (single or burst) mismatches what is already
+%%   remembered, the value is dropped.
+
+-spec add(name(), origin(), #value{}, burst | single) ->
+  ok.
+
+add(ValueName, ValueOrigin, Record, ValueType) ->
+  case get_keeper(ValueName, ValueOrigin, ValueType) of
+    {Pid, Module} -> Module:add(Pid, Record);
+    none -> ok % TODO: log this event
+  end.
+
+%% @doc List the keys remembered under `{ValueName,ValueOrigin}'.
+
+-spec list_keys(name(), origin()) ->
+  [key()].
+
+list_keys(ValueName, ValueOrigin) ->
+  case get_keeper(ValueName, ValueOrigin) of
+    {Pid, Module} ->
+      try
+        Module:list_keys(Pid)
+      catch
+        exit:{noproc, {gen_server, call, _Args}} -> []
+      end;
+    none ->
+      []
+  end.
+
+%%----------------------------------------------------------
+%% helpers
+%%----------------------------------------------------------
+
+%% @doc Get a keeper process and its communication module.
+%%
+%%   This function does not start a new process.
+
+-spec get_keeper(name(), origin()) ->
+  {pid(), module()} | none.
+
+get_keeper(ValueName, ValueOrigin) ->
+  statip_registry:find_process(ValueName, ValueOrigin).
+
+%% @doc Get a keeper process (possibly starting it) and its communication
+%%   module.
+%%
+%%   This function tries first to find an already started keeper process. If
+%%   no keeper is started, it tries to start one and use that. If starting
+%%   failed, it means somebody else already started one, so the function tries
+%%   to find and use that one instead. If all that fails, function gives up
+%%   and returns `none'.
+%%
+%%   If the value type expected and running are mismatched (incoming single
+%%   value while burst keeper is running or the reverse), function returns
+%%   `none'.
+
+-spec get_keeper(name(), origin(), burst | single) ->
+  {pid(), module()} | none.
+
+get_keeper(ValueName, ValueOrigin, ValueType) ->
+  case statip_registry:find_process(ValueName, ValueOrigin) of
+    {Pid, statip_value_burst = Module} when ValueType == burst ->
+      {Pid, Module};
+    {Pid, statip_value_single = Module} when ValueType == single ->
+      {Pid, Module};
+    {_Pid, _Module} ->
+      % mismatched incoming value type and registered value type
+      none;
+    none ->
+      case start_keeper(ValueName, ValueOrigin, ValueType) of
+        {Pid, Module} -> {Pid, Module};
+        none -> statip_registry:find_process(ValueName, ValueOrigin)
+      end
+  end.
+
+%% @doc Start a new value keeper process, depending on value's type.
+
+-spec start_keeper(name(), origin(), burst | single) ->
+  {pid(), module()} | none.
+
+start_keeper(ValueName, ValueOrigin, burst = _ValueType) ->
+  case statip_value_burst:spawn_keeper(ValueName, ValueOrigin) of
+    {ok, Pid} when is_pid(Pid) -> {Pid, statip_value_burst};
+    {ok, undefined} -> none
+  end;
+start_keeper(ValueName, ValueOrigin, single = _ValueType) ->
+  case statip_value_single:spawn_keeper(ValueName, ValueOrigin) of
+    {ok, Pid} when is_pid(Pid) -> {Pid, statip_value_single};
+    {ok, undefined} -> none
+  end.
+
+%%%---------------------------------------------------------------------------
+%%% general-purpose interface
+%%%---------------------------------------------------------------------------
+
+%% @doc Return current time as a unix timestamp.
+
+-spec timestamp() ->
+  timestamp().
 
 timestamp() ->
   {MS,S,_US} = os:timestamp(),

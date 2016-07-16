@@ -9,6 +9,9 @@
 
 -behaviour(supervisor).
 
+%% public interface
+-export([spawn_keeper/2]).
+
 %% supervision tree API
 -export([start_link/0]).
 
@@ -24,6 +27,13 @@
 
 start_link() ->
   supervisor:start_link({local, ?MODULE}, ?MODULE, []).
+
+%%%---------------------------------------------------------------------------
+%%% public interface
+%%%---------------------------------------------------------------------------
+
+spawn_keeper(ValueName, ValueOrigin) ->
+  supervisor:start_child(?MODULE, [ValueName, ValueOrigin]).
 
 %%%---------------------------------------------------------------------------
 %%% supervisor callbacks
