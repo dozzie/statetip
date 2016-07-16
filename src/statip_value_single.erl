@@ -88,8 +88,8 @@ init([ValueName, ValueOrigin] = _Args) ->
       State = #state{
         value_name = ValueName,
         value_origin = ValueOrigin,
-        entries = gb_trees:empty(),
-        expiry = statip_pqueue:new()
+        entries = undefined,
+        expiry = undefined
       },
       {ok, State, 1000};
     {error, name_taken} ->
@@ -136,6 +136,10 @@ handle_cast(_Request, State) ->
 %% @private
 %% @doc Handle incoming messages.
 
+handle_info(timeout = _Message,
+            State = #state{entries = undefined, expiry = undefined}) ->
+  {noreply, State, 1000};
+
 %% delete expired records
 handle_info(timeout = _Message,
             State = #state{entries = Entries, expiry = ExpiryQ}) ->
@@ -144,7 +148,10 @@ handle_info(timeout = _Message,
     entries = NewEntries,
     expiry = NewExpiryQ
   },
-  {noreply, NewState, 1000};
+  case gb_trees:is_empty(NewEntries) of
+    true  -> {stop, normal, NewState};
+    false -> {noreply, NewState, 1000}
+  end;
 
 %% unknown messages
 handle_info(_Message, State) ->
@@ -167,8 +174,15 @@ code_change(_OldVsn, State, _Extra) ->
 
 %% @doc Add a new record to record store and to expiry queue.
 
--spec add_record(#value{}, gb_tree(), statip_pqueue:pqueue()) ->
+-spec add_record(#value{},
+                 gb_tree() | undefined, statip_pqueue:pqueue() | undefined) ->
   {gb_tree(), statip_pqueue:pqueue()}.
+
+add_record(Record, undefined = _Entries, ExpiryQ) ->
+  add_record(Record, gb_trees:empty(), ExpiryQ);
+
+add_record(Record, Entries, undefined = _ExpiryQ) ->
+  add_record(Record, Entries, statip_pqueue:new());
 
 add_record(Record = #value{key = Key, expires = Expires}, Entries, ExpiryQ) ->
   NewExpiryQ = case gb_trees:lookup(Key, Entries) of
