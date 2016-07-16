@@ -83,13 +83,18 @@ list_keys(Pid) ->
 %% @doc Initialize event handler.
 
 init([ValueName, ValueOrigin] = _Args) ->
-  State = #state{
-    value_name = ValueName,
-    value_origin = ValueOrigin,
-    entries = gb_trees:empty(),
-    expiry = statip_pqueue:new()
-  },
-  {ok, State, 1000}.
+  case statip_registry:add(ValueName, ValueOrigin, self(), ?MODULE) of
+    ok ->
+      State = #state{
+        value_name = ValueName,
+        value_origin = ValueOrigin,
+        entries = gb_trees:empty(),
+        expiry = statip_pqueue:new()
+      },
+      {ok, State, 1000};
+    {error, name_taken} ->
+      ignore
+  end.
 
 %% @private
 %% @doc Clean up after event handler.
