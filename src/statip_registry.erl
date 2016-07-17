@@ -13,6 +13,7 @@
 
 %% public interface
 -export([add/4, find_process/2]).
+-export([list_names/0, list_origins/1]).
 
 %% supervision tree API
 -export([start/0, start_link/0]).
@@ -24,6 +25,8 @@
 
 %%%---------------------------------------------------------------------------
 %%% types {{{
+
+-include_lib("stdlib/include/ms_transform.hrl"). % ets:fun2ms()
 
 -define(ETS_VALUES, statip_registry_values).
 
@@ -84,11 +87,20 @@ find_process(ValueName, ValueOrigin) ->
       _Result = none
   end.
 
-%-spec list_names() ->
-%  [statip_value:name()].
+-spec list_names() ->
+  [statip_value:name()].
 
-%-spec list_origins(statip_value:name()) ->
-%  [statip_value:origin()].
+list_names() ->
+  ets:select(?ETS_VALUES, ets:fun2ms(fun(#value{key = {Name, _}}) -> Name end)).
+
+-spec list_origins(statip_value:name()) ->
+  [statip_value:origin()].
+
+list_origins(ValueName) ->
+  MatchSpec = ets:fun2ms(
+    fun(#value{key = {Name, Origin}}) when Name == ValueName -> Origin end
+  ),
+  ets:select(?ETS_VALUES, MatchSpec).
 
 %%%---------------------------------------------------------------------------
 %%% gen_server callbacks

@@ -19,8 +19,10 @@
 
 %% general-purpose interface
 -export([timestamp/0]).
-%% value keepers interface
--export([add/4, list_keys/2]).
+%% data access interface
+-export([add/4]).
+-export([list_names/0, list_origins/1]).
+-export([list_keys/2]).
 
 -export_type([name/0, origin/0, key/0]).
 -export_type([value/0, severity/0, info/0]).
@@ -75,7 +77,7 @@
   [key()].
 
 %%%---------------------------------------------------------------------------
-%%% value keepers interface
+%%% data access interface
 %%%---------------------------------------------------------------------------
 
 %% @doc Remember a value in appropriate keeper.
@@ -91,7 +93,23 @@ add(ValueName, ValueOrigin, Record, ValueType) ->
     none -> ok % TODO: log this event
   end.
 
-%% @doc List the keys remembered under `{ValueName,ValueOrigin}'.
+%% @doc List names of registered values.
+
+-spec list_names() ->
+  [name()].
+
+list_names() ->
+  statip_registry:list_names().
+
+%% @doc List all origins that were recorded for a value.
+
+-spec list_origins(name()) ->
+  [origin()].
+
+list_origins(ValueName) ->
+  statip_registry:list_origins(ValueName).
+
+%% @doc List the keys remembered for an origin of a value.
 
 -spec list_keys(name(), origin()) ->
   [key()].
