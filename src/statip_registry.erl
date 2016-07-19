@@ -1,9 +1,6 @@
 %%%---------------------------------------------------------------------------
 %%% @doc
 %%%   Value registry.
-%%%
-%%% @todo `list_names() -> [statip_value:name()]'
-%%% @todo `list_origins(ValueName) -> [statip_value:origin()]'
 %%% @end
 %%%---------------------------------------------------------------------------
 
@@ -91,7 +88,8 @@ find_process(ValueName, ValueOrigin) ->
   [statip_value:name()].
 
 list_names() ->
-  ets:select(?ETS_VALUES, ets:fun2ms(fun(#value{key = {Name, _}}) -> Name end)).
+  MatchSpec = ets:fun2ms(fun(#value{key = {Name, _}}) -> Name end),
+  lists:usort(ets:select(?ETS_VALUES, MatchSpec)).
 
 -spec list_origins(statip_value:name()) ->
   [statip_value:origin()].
