@@ -27,10 +27,13 @@
 
 -define(ETS_VALUES, statip_registry_values).
 
+-type ms() :: '$1' | '$2' | '_'.
+%% Type to add to the record to make Dialyzer happy about ets:select()
+
 -record(value, {
-  key :: {statip_value:name(), statip_value:origin()},
-  pid :: pid(),
-  module :: module()
+  key :: {statip_value:name() | ms(), statip_value:origin() | ms()},
+  pid :: pid() | ms(),
+  module :: module() | ms()
 }).
 
 -record(state, {
