@@ -47,7 +47,7 @@
 -type value() :: binary() | undefined.
 %% Value to be remembered.in the record.
 
--type severity() :: ok | warning | critical.
+-type severity() :: expected | warning | critical.
 %% Value's severity.
 
 -type info() :: statip_json:struct().
