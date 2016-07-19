@@ -31,6 +31,12 @@
 %%% public interface
 %%%---------------------------------------------------------------------------
 
+%% @doc Spawn a process to handle the transmission from the socket.
+%%
+%%   Function assumes that it was called from owner of the `Socket' and passes
+%%   `Socket''s ownership to the spawned process. Parent should not close
+%%   `Socket' after calling this function.
+
 -spec handle_socket(gen_tcp:socket()) ->
   ok.
 
