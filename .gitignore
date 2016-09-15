@@ -1,5 +1,6 @@
 .*.swp
 *.beam
+*.plt
 /ebin/*.app
 /doc/edoc-info
 /doc/*.png

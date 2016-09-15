@@ -2,23 +2,28 @@
 
 #-----------------------------------------------------------------------------
 
+ifeq ($(wildcard .*.plt),)
 #DIALYZER_PLT = ~/.dialyzer_plt
-DIALYZER_OPTS = --no_check_plt $(foreach D,$(DIALYZER_PLT),--plt $D)
+else
+DIALYZER_PLT = ~/.dialyzer_plt $(wildcard .*.plt)
+endif
+DIALYZER_OPTS = --no_check_plt $(if $(DIALYZER_PLT),--plts $(DIALYZER_PLT))
 
 DIAGRAMS = $(basename $(notdir $(wildcard diagrams/*.diag)))
 DIAGRAMS_SVG = $(foreach D,$(DIAGRAMS),doc/images/$D.svg)
 
 #-----------------------------------------------------------------------------
 
-.PHONY: all doc edoc diagrams compile build dialyzer
+.PHONY: all doc edoc diagrams compile build clean dialyzer
 
 all: compile doc
 
-doc edoc: diagrams
-	rebar doc
+build: compile
+edoc: doc
+doc: diagrams
 
-compile build:
-	rebar compile
+compile clean doc:
+	rebar $@
 
 diagrams: $(DIAGRAMS_SVG)
 
