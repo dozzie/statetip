@@ -1,0 +1,39 @@
+#
+# StateTip daemon configuration
+#
+
+[events]
+# TCP address to receive events on
+#listen = "*:3012"
+# default expiry time (seconds) for incoming events
+#default_expiry = 43200
+
+[http]
+# where to expose state to be read using HTTP API
+#listen = "*:3082"
+
+[store]
+# directory to store state between restarts; if not set, state won't be
+# remembered between StateTip restarts
+#directory = "/var/lib/statetip"
+
+[logging]
+# log destinations ("statip_syslog_h" and/or "statip_tty_h")
+handlers = ["statip_syslog_h"]
+
+[erlang]
+# name of Erlang node in distributed mode (<node_name>@<hostname>)
+node_name = "statetip"
+# type of hostnames in distributed mode ("longnames" or "shortnames", as
+# net_kernel documentation says)
+name_type = "longnames"
+# text file with magic cookie to use in distributed Erlang
+cookie_file = "/etc/statetip/cookie.txt"
+# start distributed Erlang immediately or on command-line request
+# ("statetipd dist-erl-start")
+distributed_immediate = false
+
+# file with Erlang system events log; events are not logged if this is not set
+#log_file = "/var/log/statetip/erlang.log"
+
+# vim:ft=dosini
