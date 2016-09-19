@@ -1,11 +1,11 @@
 %%%---------------------------------------------------------------------------
 %%% @private
 %%% @doc
-%%%   Application's top-level supervisor.
+%%%   HTTP subsystem supervisor.
 %%% @end
 %%%---------------------------------------------------------------------------
 
--module(statip_sup).
+-module(statip_http_sup).
 
 -behaviour(supervisor).
 
@@ -35,21 +35,12 @@ start_link() ->
 init([] = _Args) ->
   Strategy = {one_for_one, 5, 10},
   Children = [
-    %{statip_log,
-    %  {statip_log, start_link, []},
-    %  permanent, 5000, worker, [statip_log]},
-    {statip_registry,
-      {statip_registry, start_link, []},
-      permanent, 5000, worker, [statip_registry]},
-    {statip_value_sup,
-      {statip_value_sup, start_link, []},
-      permanent, 5000, supervisor, [statip_value_sup]},
-    {statip_input_sup,
-      {statip_input_sup, start_link, []},
-      permanent, 5000, supervisor, [statip_input_sup]},
-    {statip_http_sup,
-      {statip_http_sup, start_link, []},
-      permanent, 5000, supervisor, [statip_http_sup]}
+    {statip_http_client_sup,
+      {statip_http_client_sup, start_link, []},
+      permanent, 5000, supervisor, [statip_http_client_sup]},
+    {statip_http_listener,
+      {statip_http_listener, start_link, []},
+      permanent, 5000, worker, [statip_http_listener]}
   ],
   {ok, {Strategy, Children}}.
 

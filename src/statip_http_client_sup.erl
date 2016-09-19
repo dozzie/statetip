@@ -1,19 +1,29 @@
 %%%---------------------------------------------------------------------------
 %%% @private
 %%% @doc
-%%%   Application's top-level supervisor.
+%%%   HTTP client handlers supervisor.
 %%% @end
 %%%---------------------------------------------------------------------------
 
--module(statip_sup).
+-module(statip_http_client_sup).
 
 -behaviour(supervisor).
+
+%% public interface
+-export([spawn_worker/1]).
 
 %% supervision tree API
 -export([start_link/0]).
 
 %% supervisor callbacks
 -export([init/1]).
+
+%%%---------------------------------------------------------------------------
+%%% public interface
+%%%---------------------------------------------------------------------------
+
+spawn_worker(Socket) ->
+  supervisor:start_child(?MODULE, [Socket]).
 
 %%%---------------------------------------------------------------------------
 %%% supervision tree API
@@ -33,23 +43,11 @@ start_link() ->
 %% @doc Initialize supervisor.
 
 init([] = _Args) ->
-  Strategy = {one_for_one, 5, 10},
+  Strategy = {simple_one_for_one, 5, 10},
   Children = [
-    %{statip_log,
-    %  {statip_log, start_link, []},
-    %  permanent, 5000, worker, [statip_log]},
-    {statip_registry,
-      {statip_registry, start_link, []},
-      permanent, 5000, worker, [statip_registry]},
-    {statip_value_sup,
-      {statip_value_sup, start_link, []},
-      permanent, 5000, supervisor, [statip_value_sup]},
-    {statip_input_sup,
-      {statip_input_sup, start_link, []},
-      permanent, 5000, supervisor, [statip_input_sup]},
-    {statip_http_sup,
-      {statip_http_sup, start_link, []},
-      permanent, 5000, supervisor, [statip_http_sup]}
+    {statip_http_client,
+      {statip_http_client, start_link, []},
+      temporary, 5000, worker, [statip_http_client]}
   ],
   {ok, {Strategy, Children}}.
 
