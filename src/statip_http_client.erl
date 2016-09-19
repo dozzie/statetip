@@ -9,7 +9,7 @@
 -behaviour(gen_server).
 
 %% public interface
--export([handle_socket/1]).
+-export([take_over/1]).
 
 %% supervision tree API
 -export([start/1, start_link/1]).
@@ -41,10 +41,10 @@
 %%   `Socket''s ownership to the spawned process. Parent should not close
 %%   `Socket' after calling this function.
 
--spec handle_socket(gen_tcp:socket()) ->
+-spec take_over(gen_tcp:socket()) ->
   ok.
 
-handle_socket(Socket) ->
+take_over(Socket) ->
   {ok, Pid} = statip_http_client_sup:spawn_worker(Socket),
   ok = gen_tcp:controlling_process(Socket, Pid),
   ok = inet:setopts(Socket, [binary, {packet, http_bin}, {active, once}]),
