@@ -116,13 +116,24 @@ handle_info({http, Socket, Packet} = _Request,
       inet:setopts(Socket, [{active, once}]),
       {noreply, NewState};
     {done, NewState} ->
-      process_request(NewState),
-      {stop, normal, NewState};
+      try process_request(NewState) of
+        {ok, Headers, Body} ->
+          gen_tcp:send(Socket, [http_reply(200, Headers), Body]),
+          {stop, normal, NewState};
+        {error, ErrorCode} when ErrorCode >= 400, ErrorCode =< 599 ->
+          gen_tcp:send(Socket, [http_reply(ErrorCode)]),
+          {stop, normal, NewState}
+      catch
+        Error:Reason ->
+          % TODO: log this
+          gen_tcp:send(Socket, [http_reply(500)]),
+          {stop, {Error, Reason}, State}
+      end;
     {error, bad_method = _Reason} ->
-      send_error(Socket, 405),
+      gen_tcp:send(Socket, http_reply(405)),
       {stop, normal, State};
     {error, _Reason} ->
-      send_error(Socket, 400),
+      gen_tcp:send(Socket, http_reply(400)),
       {stop, normal, State}
   end;
 
@@ -152,6 +163,7 @@ code_change(_OldVsn, State, _Extra) ->
 %%----------------------------------------------------------
 
 %%%---------------------------------------------------------------------------
+%%% parsing HTTP request for gen_server {{{
 
 parse_request({http_request, 'GET', {abs_path, Path}, _Version}, State) ->
   NewState = State#state{path = Path},
@@ -170,41 +182,101 @@ parse_request(_Request, _State) ->
 ensure_binary(Field) when is_atom(Field) -> atom_to_binary(Field, utf8);
 ensure_binary(Field) when is_binary(Field) -> Field.
 
-send_error(Socket, ErrorCode) ->
-  gen_tcp:send(Socket, [
-    "HTTP/1.1 ", integer_to_list(ErrorCode),
-    " ", error_desc(ErrorCode), "\r\n",
-    common_headers(),
-    "\r\n"
-  ]).
+%%% }}}
+%%%---------------------------------------------------------------------------
+%%% building HTTP reply {{{
 
-error_desc(400) -> "Bad request";
-error_desc(404) -> "Not found";
-error_desc(405) -> "Method not allowed";
-error_desc(500) -> "Server error".
+http_reply(Code) when is_integer(Code) ->
+  http_reply(Code, []).
 
-common_headers() ->
-  _Headers = [
+http_reply(Code, Headers) when is_integer(Code) ->
+  _Result = [
+    "HTTP/1.1 ", integer_to_list(Code), " ", code_desc(Code), "\r\n",
     "Server: StateTip/0.0.0\r\n",
-    "Connection: close\r\n"
+    "Connection: close\r\n",
+    [[H, "\r\n"] || H <- Headers],
+    "\r\n"
   ].
 
+code_desc(200) -> "OK";
+code_desc(400) -> "Bad request";
+code_desc(404) -> "Not found";
+code_desc(405) -> "Method not allowed";
+code_desc(500) -> "Server error".
+
+%%% }}}
 %%%---------------------------------------------------------------------------
 
-process_request(_State = #state{socket = Socket, path = Path,
-                                headers = _Headers}) ->
-  {MS, S, US} = os:timestamp(),
-  Time = io_lib:format("~B~6..0B.~6..0B", [MS, S, US]),
-  gen_tcp:send(Socket, [
-    "HTTP/1.1 200 OK\r\n",
-    common_headers(),
-    "Content-Type: text/plain\r\n",
-    "\r\n",
-    "requested path: ", Path, "\n",
-    "now: ", Time, "\n",
-    ""
-  ]),
-  ok.
+-spec process_request(#state{}) ->
+  {ok, Headers :: [string()], Body :: iolist() | binary()} | {error, 404}.
+
+process_request(_State = #state{path = Path, headers = _Headers}) ->
+  case split_path(Path) of
+    {ok, {_Type, Name}} ->
+      Reply = [
+        "name: ", Name, "\n"
+      ],
+      {ok, ["Content-Type: text/plain"], Reply};
+    {ok, {_Type, Name, Origin}} ->
+      % FIXME: or maybe `Name, Key' with empty origin?
+      Reply = [
+        "name:   ", Name, "\n",
+        "origin: ", Origin, "\n"
+      ],
+      {ok, ["Content-Type: text/plain"], Reply};
+    {ok, {_Type, Name, Origin, Key}} ->
+      Reply = [
+        "name:   ", Name, "\n",
+        "origin: ", Origin, "\n",
+        "key:    ", Key, "\n"
+      ],
+      {ok, ["Content-Type: text/plain"], Reply};
+    {error, _Reason} ->
+      {error, 404}
+  end.
+
+%%----------------------------------------------------------
+%% extract information on what to return {{{
+
+-spec split_path(binary()) ->
+  {ok, Result} | {error, bad_prefix | bad_name | bad_origin}
+  when Result :: {Type, Name}
+               | {Type, Name, Origin}
+               | {Type, Name, Origin, Key},
+       Name :: binary(),
+       Origin :: binary(),
+       Key :: binary(),
+       Type :: list | json | all | json_all.
+
+split_path(<<"/list/",     Rest/binary>> = _Path) -> fragments(list, Rest);
+split_path(<<"/json/",     Rest/binary>> = _Path) -> fragments(json, Rest);
+split_path(<<"/all/",      Rest/binary>> = _Path) -> fragments(all, Rest);
+split_path(<<"/json-all/", Rest/binary>> = _Path) -> fragments(json_all, Rest);
+split_path(_Path) -> {error, bad_prefix}.
+
+-spec fragments(Type :: atom(), binary()) ->
+  {ok, Result} | {error, bad_name | bad_origin}
+  when Result :: {Type, Name :: binary()}
+               | {Type, Name :: binary(), Origin :: binary()}
+               | {Type, Name :: binary(), Origin :: binary(), Key :: binary()}.
+
+fragments(Type, Path) ->
+  % TODO: percent-decode
+  case binary:split(Path, <<"/">>, [trim]) of
+    []         -> {error, bad_name};
+    [<<>> | _] -> {error, bad_name};
+    [Name]     -> {ok, {Type, Name}};
+    [Name, Rest] ->
+      case binary:split(Rest, <<"/">>, [trim]) of
+        []            -> {error, bad_origin};
+        [<<>> | _]    -> {error, bad_origin};
+        [Origin]      -> {ok, {Type, Name, Origin}};
+        [Origin, Key] -> {ok, {Type, Name, Origin, Key}}
+      end
+  end.
+
+%% }}}
+%%----------------------------------------------------------
 
 %%%---------------------------------------------------------------------------
 %%% vim:ft=erlang:foldmethod=marker
