@@ -224,7 +224,15 @@ process_request(_State = #state{path = Path, headers = _Headers}) ->
       {ok, [content_type(Type)], format(Type, Names)};
     {ok, {Type, Name}} when Type == list; Type == json ->
       Origins = statip_value:list_origins(Name),
-      {ok, [content_type(Type)], format(Type, Origins)};
+      % check if we should list keys for `name=Name,origin=null' or just
+      % origins for `name=Name'
+      case lists:member(undefined, Origins) of
+        true ->
+          Keys = statip_value:list_keys(Name, undefined),
+          {ok, [content_type(Type)], format(Type, Keys)};
+        false ->
+          {ok, [content_type(Type)], format(Type, Origins)}
+      end;
     {ok, {Type, Name, Origin}} when Type == list; Type == json ->
       % TODO: this may be a request for `{Name,null,Key}', not `{Name,Origin}'
       Keys = statip_value:list_keys(Name, Origin),
