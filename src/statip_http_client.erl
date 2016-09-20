@@ -1,6 +1,8 @@
 %%%---------------------------------------------------------------------------
 %%% @doc
 %%%   HTTP client connection handler process.
+%%%
+%%% @todo Make the HTTP API unambiguous
 %%% @end
 %%%---------------------------------------------------------------------------
 
@@ -233,12 +235,28 @@ process_request(_State = #state{path = Path, headers = _Headers}) ->
         false ->
           {ok, [content_type(Type)], format(Type, Origins)}
       end;
-    {ok, {Type, Name, Origin}} when Type == list; Type == json ->
-      % TODO: this may be a request for `{Name,null,Key}', not `{Name,Origin}'
-      Keys = statip_value:list_keys(Name, Origin),
-      {ok, [content_type(Type)], format(Type, Keys)};
-    {ok, {Type, _Name, _Origin, _Key}} when Type == list; Type == json ->
-      {error, 500}; % TODO
+    {ok, {Type, Name, OriginOrKey}} when Type == list; Type == json ->
+      % XXX: this may be a request for `{Name,null,Key}', not for listing keys
+      % under `{Name,Origin}'
+      case statip_value:get_record(Name, undefined, OriginOrKey) of
+        Record = #value{} ->
+          Struct = encode_record(Name, undefined, Record),
+          {ok, JSON} = statip_json:encode(Struct),
+          {ok, [content_type(Type)], [JSON, $\n]};
+        none ->
+          % turns out it's just listing keys
+          Keys = statip_value:list_keys(Name, OriginOrKey),
+          {ok, [content_type(Type)], format(Type, Keys)}
+      end;
+    {ok, {Type, Name, Origin, Key}} when Type == list; Type == json ->
+      case statip_value:get_record(Name, Origin, Key) of
+        Record = #value{} ->
+          Struct = encode_record(Name, Origin, Record),
+          {ok, JSON} = statip_json:encode(Struct),
+          {ok, [content_type(Type)], [JSON, $\n]};
+        none ->
+          {error, 404}
+      end;
     {error, _Reason} ->
       {error, 404}
   end.
@@ -306,6 +324,24 @@ format(list, Strings) ->
 format(json, Strings) ->
   {ok, JSON} = statip_json:encode(Strings),
   [JSON, $\n].
+
+-spec encode_record(statip_value:name(), statip_value:origin(), #value{}) ->
+  statip_json:struct().
+
+encode_record(Name, Origin, Record = #value{}) ->
+  EncodedOrigin = case Origin of
+    undefined -> null;
+    _ -> Origin
+  end,
+  % TODO: how about "created" and "expires" fields?
+  _Result = [
+    {name, Name},
+    {origin, EncodedOrigin},
+    {key,      Record#value.key},
+    {value,    Record#value.value},
+    {severity, Record#value.severity},
+    {info,     Record#value.info}
+  ].
 
 %%----------------------------------------------------------
 
