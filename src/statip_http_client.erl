@@ -211,26 +211,26 @@ code_desc(500) -> "Server error".
   {ok, Headers :: [string()], Body :: iolist() | binary()} | {error, 404}.
 
 process_request(_State = #state{path = Path, headers = _Headers}) ->
+  % Type :: list | json | all | json_all
   case split_path(Path) of
-    {ok, {_Type, Name}} ->
-      Reply = [
-        "name: ", Name, "\n"
-      ],
-      {ok, ["Content-Type: text/plain"], Reply};
-    {ok, {_Type, Name, Origin}} ->
-      % FIXME: or maybe `Name, Key' with empty origin?
-      Reply = [
-        "name:   ", Name, "\n",
-        "origin: ", Origin, "\n"
-      ],
-      {ok, ["Content-Type: text/plain"], Reply};
-    {ok, {_Type, Name, Origin, Key}} ->
-      Reply = [
-        "name:   ", Name, "\n",
-        "origin: ", Origin, "\n",
-        "key:    ", Key, "\n"
-      ],
-      {ok, ["Content-Type: text/plain"], Reply};
+    {ok, {all,      _Name               }} -> {error, 404};
+    {ok, {all,      _Name, _Origin, _Key}} -> {error, 404};
+    {ok, {json_all, _Name               }} -> {error, 404};
+    {ok, {json_all, _Name, _Origin, _Key}} -> {error, 404};
+    {ok, {all,      _Name, _Origin}} -> {error, 500}; % TODO
+    {ok, {json_all, _Name, _Origin}} -> {error, 500}; % TODO
+    {ok, Type} when Type == list; Type == json ->
+      Names = statip_value:list_names(),
+      {ok, [content_type(Type)], format(Type, Names)};
+    {ok, {Type, Name}} when Type == list; Type == json ->
+      Origins = statip_value:list_origins(Name),
+      {ok, [content_type(Type)], format(Type, Origins)};
+    {ok, {Type, Name, Origin}} when Type == list; Type == json ->
+      % TODO: this may be a request for `{Name,null,Key}', not `{Name,Origin}'
+      Keys = statip_value:list_keys(Name, Origin),
+      {ok, [content_type(Type)], format(Type, Keys)};
+    {ok, {Type, _Name, _Origin, _Key}} when Type == list; Type == json ->
+      {error, 500}; % TODO
     {error, _Reason} ->
       {error, 404}
   end.
@@ -240,7 +240,8 @@ process_request(_State = #state{path = Path, headers = _Headers}) ->
 
 -spec split_path(binary()) ->
   {ok, Result} | {error, bad_prefix | bad_name | bad_origin}
-  when Result :: {Type, Name}
+  when Result :: list | json
+               | {Type, Name}
                | {Type, Name, Origin}
                | {Type, Name, Origin, Key},
        Name :: binary(),
@@ -248,6 +249,10 @@ process_request(_State = #state{path = Path, headers = _Headers}) ->
        Key :: binary(),
        Type :: list | json | all | json_all.
 
+split_path(<<"/list">>  = _Path) -> {ok, list};
+split_path(<<"/list/">> = _Path) -> {ok, list};
+split_path(<<"/json">>  = _Path) -> {ok, json};
+split_path(<<"/json/">> = _Path) -> {ok, json};
 split_path(<<"/list/",     Rest/binary>> = _Path) -> fragments(list, Rest);
 split_path(<<"/json/",     Rest/binary>> = _Path) -> fragments(json, Rest);
 split_path(<<"/all/",      Rest/binary>> = _Path) -> fragments(all, Rest);
@@ -261,6 +266,7 @@ split_path(_Path) -> {error, bad_prefix}.
                | {Type, Name :: binary(), Origin :: binary(), Key :: binary()}.
 
 fragments(Type, Path) ->
+  % TODO: list names
   % TODO: percent-decode
   case binary:split(Path, <<"/">>, [trim]) of
     []         -> {error, bad_name};
@@ -276,6 +282,23 @@ fragments(Type, Path) ->
   end.
 
 %% }}}
+%%----------------------------------------------------------
+
+-spec content_type(list | json) ->
+  string().
+
+content_type(list) -> "Content-Type: text/plain";
+content_type(json) -> "Content-Type: application/json".
+
+-spec format(list | json, [binary()]) ->
+  iolist().
+
+format(list, Strings) ->
+  [[S, $\n] || S <- Strings];
+format(json, Strings) ->
+  {ok, JSON} = statip_json:encode(Strings),
+  [JSON, $\n].
+
 %%----------------------------------------------------------
 
 %%%---------------------------------------------------------------------------
