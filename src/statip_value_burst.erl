@@ -3,7 +3,6 @@
 %%%   Burst value keeper process.
 %%%
 %%% @todo `list_records(Pid) -> [#value{}]' (not really `#value{}')
-%%% @todo `get_record(Pid, Key) -> #value{} | none' (not really `#value{}')
 %%% @todo update disk state that fills things after restart
 %%% @end
 %%%---------------------------------------------------------------------------
@@ -14,7 +13,7 @@
 -behaviour(statip_value).
 
 %% public interface
--export([spawn_keeper/2, add/2, list_keys/1]).
+-export([spawn_keeper/2, add/2, list_keys/1, get_record/2]).
 
 %% supervision tree API
 -export([start/2, start_link/2]).
@@ -82,6 +81,14 @@ add(Pid, Record = #value{}) ->
 list_keys(Pid) ->
   gen_server:call(Pid, list_keys).
 
+%% @doc Get a record for a specific key.
+
+-spec get_record(pid(), statip_value:key()) ->
+  #value{} | none.
+
+get_record(Pid, Key) ->
+  gen_server:call(Pid, {get_record, Key}).
+
 %%%---------------------------------------------------------------------------
 %%% gen_server callbacks
 %%%---------------------------------------------------------------------------
@@ -124,6 +131,12 @@ handle_call(list_keys = _Request, _From,
             State = #state{current_entries = CurEntries,
                            previous_entries = OldEntries}) ->
   Result = get_record_keys(CurEntries, OldEntries),
+  {reply, Result, State, 1000};
+
+handle_call({get_record, Key} = _Request, _From,
+            State = #state{current_entries = CurEntries,
+                           previous_entries = OldEntries}) ->
+  Result = get_record(Key, CurEntries, OldEntries),
   {reply, Result, State, 1000};
 
 %% unknown calls
@@ -196,6 +209,17 @@ add_record(Record = #value{key = Key, expires = NewExpiryTime},
           NewState#state{expires = NewExpiryTime};
         _ when ExpiryTime >= NewExpiryTime ->
           NewState
+      end
+  end.
+
+get_record(Key, CurEntries, OldEntries) ->
+  case gb_trees:lookup(Key, CurEntries) of
+    {value, Record} ->
+      Record;
+    none ->
+      case gb_trees:lookup(Key, OldEntries) of
+        {value, Record} -> Record;
+        none -> none
       end
   end.
 

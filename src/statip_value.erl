@@ -9,7 +9,8 @@
 %%%
 %%%   <b>TODO</b>: describe required callbacks (`spawn_keeper(ValueName,
 %%%   ValueOrigin)', `add(Pid, Record)' (should not die on noproc),
-%%%   `list_keys(Pid)' (may die on noproc))
+%%%   `list_keys(Pid)' (may die on noproc), `get_record(Pid, Key)' (may die on
+%%%   noproc))
 %%%
 %%% @todo Implement all the reading functions.
 %%% @end
@@ -22,7 +23,7 @@
 %% data access interface
 -export([add/4]).
 -export([list_names/0, list_origins/1]).
--export([list_keys/2]).
+-export([list_keys/2, get_record/3]).
 
 -export_type([name/0, origin/0, key/0]).
 -export_type([value/0, severity/0, info/0]).
@@ -76,6 +77,9 @@
 -callback list_keys(Pid :: pid()) ->
   [key()].
 
+-callback get_record(Pid :: pid(), Key :: statip_value:key()) ->
+  #value{} | none.
+
 %%%---------------------------------------------------------------------------
 %%% data access interface
 %%%---------------------------------------------------------------------------
@@ -124,6 +128,23 @@ list_keys(ValueName, ValueOrigin) ->
       end;
     none ->
       []
+  end.
+
+%% @doc Get the record for a specific key.
+
+-spec get_record(name(), origin(), key()) ->
+  #value{} | none.
+
+get_record(ValueName, ValueOrigin, Key) ->
+  case get_keeper(ValueName, ValueOrigin) of
+    {Pid, Module} ->
+      try
+        Module:get_record(Pid, Key)
+      catch
+        exit:{noproc, {gen_server, call, _Args}} -> none
+      end;
+    none ->
+      none
   end.
 
 %%----------------------------------------------------------
