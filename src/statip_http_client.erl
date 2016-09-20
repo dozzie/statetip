@@ -1,8 +1,6 @@
 %%%---------------------------------------------------------------------------
 %%% @doc
 %%%   HTTP client connection handler process.
-%%%
-%%% @todo Make the HTTP API unambiguous
 %%% @end
 %%%---------------------------------------------------------------------------
 
@@ -225,29 +223,12 @@ process_request(_State = #state{path = Path, headers = _Headers}) ->
       Names = statip_value:list_names(),
       {ok, [content_type(Type)], format(Type, Names)};
     {ok, {Type, Name}} when Type == list; Type == json ->
-      Origins = statip_value:list_origins(Name),
-      % check if we should list keys for `name=Name,origin=null' or just
-      % origins for `name=Name'
-      case lists:member(undefined, Origins) of
-        true ->
-          Keys = statip_value:list_keys(Name, undefined),
-          {ok, [content_type(Type)], format(Type, Keys)};
-        false ->
-          {ok, [content_type(Type)], format(Type, Origins)}
-      end;
-    {ok, {Type, Name, OriginOrKey}} when Type == list; Type == json ->
-      % XXX: this may be a request for `{Name,null,Key}', not for listing keys
-      % under `{Name,Origin}'
-      case statip_value:get_record(Name, undefined, OriginOrKey) of
-        Record = #value{} ->
-          Struct = encode_record(Name, undefined, Record),
-          {ok, JSON} = statip_json:encode(Struct),
-          {ok, [content_type(Type)], [JSON, $\n]};
-        none ->
-          % turns out it's just listing keys
-          Keys = statip_value:list_keys(Name, OriginOrKey),
-          {ok, [content_type(Type)], format(Type, Keys)}
-      end;
+      Origins = [undef_tilde(O) || O <- statip_value:list_origins(Name)],
+      {ok, [content_type(Type)], format(Type, Origins)};
+    {ok, {Type, Name, Origin}} when Type == list; Type == json ->
+      % turns out it's just listing keys
+      Keys = statip_value:list_keys(Name, Origin),
+      {ok, [content_type(Type)], format(Type, Keys)};
     {ok, {Type, Name, Origin, Key}} when Type == list; Type == json ->
       case statip_value:get_record(Name, Origin, Key) of
         Record = #value{} ->
@@ -260,6 +241,9 @@ process_request(_State = #state{path = Path, headers = _Headers}) ->
     {error, _Reason} ->
       {error, 404}
   end.
+
+undef_tilde(undefined = _N) -> <<"~">>;
+undef_tilde(N) -> N.
 
 %%----------------------------------------------------------
 %% extract information on what to return {{{
@@ -292,7 +276,6 @@ split_path(_Path) -> {error, bad_prefix}.
                | {Type, Name :: binary(), Origin :: binary(), Key :: binary()}.
 
 fragments(Type, Path) ->
-  % TODO: list names
   % TODO: percent-decode
   case binary:split(Path, <<"/">>, [trim]) of
     []         -> {error, bad_name};
@@ -300,10 +283,12 @@ fragments(Type, Path) ->
     [Name]     -> {ok, {Type, Name}};
     [Name, Rest] ->
       case binary:split(Rest, <<"/">>, [trim]) of
-        []            -> {error, bad_origin};
-        [<<>> | _]    -> {error, bad_origin};
-        [Origin]      -> {ok, {Type, Name, Origin}};
-        [Origin, Key] -> {ok, {Type, Name, Origin, Key}}
+        []             -> {error, bad_origin};
+        [<<>> | _]     -> {error, bad_origin};
+        [<<"~">>]      -> {ok, {Type, Name, undefined}};
+        [<<"~">>, Key] -> {ok, {Type, Name, undefined, Key}};
+        [Origin]       -> {ok, {Type, Name, Origin}};
+        [Origin, Key]  -> {ok, {Type, Name, Origin, Key}}
       end
   end.
 
