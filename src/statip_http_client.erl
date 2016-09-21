@@ -317,19 +317,18 @@ format(json, Strings) ->
   statip_json:struct().
 
 encode_record(Name, Origin, Record = #value{}) ->
-  EncodedOrigin = case Origin of
-    undefined -> null;
-    _ -> Origin
-  end,
   % TODO: how about "created" and "expires" fields?
   _Result = [
     {name, Name},
-    {origin, EncodedOrigin},
+    {origin, undef_null(Origin)},
     {key,      Record#value.key},
-    {value,    Record#value.value},
+    {value,    undef_null(Record#value.value)},
     {severity, Record#value.severity},
     {info,     Record#value.info}
   ].
+
+undef_null(undefined = _Value) -> null;
+undef_null(Value) -> Value.
 
 %%----------------------------------------------------------
 
