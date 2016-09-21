@@ -254,9 +254,9 @@ undef_tilde(N) -> N.
                | {Type, Name}
                | {Type, Name, Origin}
                | {Type, Name, Origin, Key},
-       Name :: binary(),
-       Origin :: binary(),
-       Key :: binary(),
+       Name   :: statip_value:name(),
+       Origin :: statip_value:origin(),
+       Key    :: statip_value:key(),
        Type :: list | json | all | json_all.
 
 split_path(<<"/list">>  = _Path) -> {ok, list};
@@ -271,9 +271,12 @@ split_path(_Path) -> {error, bad_prefix}.
 
 -spec fragments(Type :: atom(), binary()) ->
   {ok, Result} | {error, bad_name | bad_origin}
-  when Result :: {Type, Name :: binary()}
-               | {Type, Name :: binary(), Origin :: binary()}
-               | {Type, Name :: binary(), Origin :: binary(), Key :: binary()}.
+  when Result :: {Type, Name}
+               | {Type, Name, Origin}
+               | {Type, Name, Origin, Key},
+       Name   :: statip_value:name(),
+       Origin :: statip_value:origin(),
+       Key    :: statip_value:key().
 
 fragments(Type, Path) ->
   % TODO: percent-decode
