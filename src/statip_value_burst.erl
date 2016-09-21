@@ -2,7 +2,6 @@
 %%% @doc
 %%%   Burst value keeper process.
 %%%
-%%% @todo `list_records(Pid) -> [#value{}]' (not really `#value{}')
 %%% @todo update disk state that fills things after restart
 %%% @end
 %%%---------------------------------------------------------------------------
@@ -13,7 +12,7 @@
 -behaviour(statip_value).
 
 %% public interface
--export([spawn_keeper/2, add/2, list_keys/1, get_record/2]).
+-export([spawn_keeper/2, add/2, list_keys/1, list_records/1, get_record/2]).
 
 %% supervision tree API
 -export([start/2, start_link/2]).
@@ -81,6 +80,14 @@ add(Pid, Record = #value{}) ->
 list_keys(Pid) ->
   gen_server:call(Pid, list_keys).
 
+%% @doc Retrieve all records from value registry.
+
+-spec list_records(pid()) ->
+  [#value{}].
+
+list_records(Pid) ->
+  gen_server:call(Pid, list_records).
+
 %% @doc Get a record for a specific key.
 
 -spec get_record(pid(), statip_value:key()) ->
@@ -131,6 +138,12 @@ handle_call(list_keys = _Request, _From,
             State = #state{current_entries = CurEntries,
                            previous_entries = OldEntries}) ->
   Result = get_record_keys(CurEntries, OldEntries),
+  {reply, Result, State, 1000};
+
+handle_call(list_records = _Request, _From,
+            State = #state{current_entries = CurEntries,
+                           previous_entries = OldEntries}) ->
+  Result = get_all_records(CurEntries, OldEntries),
   {reply, Result, State, 1000};
 
 handle_call({get_record, Key} = _Request, _From,
@@ -223,9 +236,27 @@ get_record(Key, CurEntries, OldEntries) ->
       end
   end.
 
+get_all_records(CurEntries, OldEntries) ->
+  CurRecords = gb_trees:values(CurEntries),
+  All = records_walk(CurEntries, CurRecords, gb_trees:iterator(OldEntries)),
+  lists:keysort(#value.sort_key, All).
+
+records_walk(SkipMap, Acc, Iterator) ->
+  case gb_trees:next(Iterator) of
+    {Key, Record, NewIterator} ->
+      case gb_trees:is_defined(Key, SkipMap) of
+        true  -> records_walk(SkipMap, Acc,            NewIterator);
+        false -> records_walk(SkipMap, [Record | Acc], NewIterator)
+      end;
+    none ->
+      Acc
+  end.
+
 get_record_keys(CurEntries, OldEntries) ->
-  % TODO: honour `sort_key' field from the records
-  lists:umerge(gb_trees:keys(CurEntries), gb_trees:keys(OldEntries)).
+  % `gb_trees:keys()' returns the entries ordered by `key' field, and we need
+  % `sort_key' field order; `get_all_records()' does that, so let's just
+  % extract the appropriate field from that list
+  [Key || #value{key = Key} <- get_all_records(CurEntries, OldEntries)].
 
 %%%---------------------------------------------------------------------------
 %%% vim:ft=erlang:foldmethod=marker

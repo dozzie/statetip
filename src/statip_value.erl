@@ -9,10 +9,8 @@
 %%%
 %%%   <b>TODO</b>: describe required callbacks (`spawn_keeper(ValueName,
 %%%   ValueOrigin)', `add(Pid, Record)' (should not die on noproc),
-%%%   `list_keys(Pid)' (may die on noproc), `get_record(Pid, Key)' (may die on
-%%%   noproc))
-%%%
-%%% @todo Implement all the reading functions.
+%%%   `list_keys(Pid)' (may die on noproc), `list_records(Pid)' (may die on
+%%%   noproc), `get_record(Pid, Key)' (may die on noproc))
 %%% @end
 %%%---------------------------------------------------------------------------
 
@@ -23,7 +21,7 @@
 %% data access interface
 -export([add/4]).
 -export([list_names/0, list_origins/1]).
--export([list_keys/2, get_record/3]).
+-export([list_keys/2, list_records/2, get_record/3]).
 
 -export_type([name/0, origin/0, key/0]).
 -export_type([value/0, severity/0, info/0]).
@@ -77,6 +75,9 @@
 -callback list_keys(Pid :: pid()) ->
   [key()].
 
+-callback list_records(Pid :: pid()) ->
+  [#value{}] | none.
+
 -callback get_record(Pid :: pid(), Key :: statip_value:key()) ->
   #value{} | none.
 
@@ -91,6 +92,10 @@
 -spec add(name(), origin(), #value{}, burst | single) ->
   ok.
 
+add(ValueName, ValueOrigin, Record = #value{key = Key, sort_key = undefined},
+    ValueType) ->
+  NewRecord = Record#value{sort_key = Key},
+  add(ValueName, ValueOrigin, NewRecord, ValueType);
 add(ValueName, ValueOrigin, Record, ValueType) ->
   case get_keeper(ValueName, ValueOrigin, ValueType) of
     {Pid, Module} -> Module:add(Pid, Record);
@@ -128,6 +133,23 @@ list_keys(ValueName, ValueOrigin) ->
       end;
     none ->
       []
+  end.
+
+%% @doc List the records remembered for an origin of a value.
+
+-spec list_records(name(), origin()) ->
+  [#value{}] | none.
+
+list_records(ValueName, ValueOrigin) ->
+  case get_keeper(ValueName, ValueOrigin) of
+    {Pid, Module} ->
+      try
+        Module:list_records(Pid)
+      catch
+        exit:{noproc, {gen_server, call, _Args}} -> none
+      end;
+    none ->
+      none
   end.
 
 %% @doc Get the record for a specific key.
