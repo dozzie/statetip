@@ -1,6 +1,6 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.0//EN" "http://www.w3.org/TR/2001/REC-SVG-20010904/DTD/svg10.dtd">
-<svg viewBox="0 0 1336 360" xmlns="http://www.w3.org/2000/svg" xmlns:inkspace="http://www.inkscape.org/namespaces/inkscape" xmlns:xlink="http://www.w3.org/1999/xlink">
+<svg viewBox="0 0 1760 360" xmlns="http://www.w3.org/2000/svg" xmlns:inkspace="http://www.inkscape.org/namespaces/inkscape" xmlns:xlink="http://www.w3.org/1999/xlink">
   <defs id="defs_block">
     <filter height="1.504" id="filter_blur" inkspace:collect="always" width="1.1575" x="-0.07875" y="-0.252">
       <feGaussianBlur id="feGaussianBlur3780" inkspace:collect="always" stdDeviation="4.2" />
@@ -18,6 +18,7 @@
   statip_sup -&gt; statip_registry;
   statip_sup -&gt; statip_value_sup;
   statip_sup -&gt; statip_input_sup;
+  statip_sup -&gt; statip_http_sup;
 
   statip_value_sup -&gt; statip_value_single_sup;
   statip_value_sup -&gt; statip_value_burst_sup;
@@ -29,9 +30,14 @@
   statip_input_sup -&gt; statip_input_listener;
   statip_input_client_sup -&gt; statip_input_client;
 
+  statip_http_sup -&gt; statip_http_client_sup;
+  statip_http_sup -&gt; statip_http_listener;
+  statip_http_client_sup -&gt; statip_http_client;
+
   statip_value_single [stacked];
   statip_value_burst  [stacked];
   statip_input_client [stacked];
+  statip_http_client  [stacked];
 }
 
 // vim:ft=dot
@@ -41,6 +47,7 @@
   <path d="M 287 126 L 419 126 A8,8 0 0 1 427 134 L 427 158 A8,8 0 0 1 419 166 L 287 166 A8,8 0 0 1 279 158 L 279 134 A8,8 0 0 1 287 126" fill="rgb(0,0,0)" stroke="rgb(0,0,0)" style="filter:url(#filter_blur);opacity:0.7;fill-opacity:1" />
   <path d="M 499 126 L 631 126 A8,8 0 0 1 639 134 L 639 158 A8,8 0 0 1 631 166 L 499 166 A8,8 0 0 1 491 158 L 491 134 A8,8 0 0 1 499 126" fill="rgb(0,0,0)" stroke="rgb(0,0,0)" style="filter:url(#filter_blur);opacity:0.7;fill-opacity:1" />
   <path d="M 923 126 L 1055 126 A8,8 0 0 1 1063 134 L 1063 158 A8,8 0 0 1 1055 166 L 923 166 A8,8 0 0 1 915 158 L 915 134 A8,8 0 0 1 923 126" fill="rgb(0,0,0)" stroke="rgb(0,0,0)" style="filter:url(#filter_blur);opacity:0.7;fill-opacity:1" />
+  <path d="M 1347 126 L 1479 126 A8,8 0 0 1 1487 134 L 1487 158 A8,8 0 0 1 1479 166 L 1347 166 A8,8 0 0 1 1339 158 L 1339 134 A8,8 0 0 1 1347 126" fill="rgb(0,0,0)" stroke="rgb(0,0,0)" style="filter:url(#filter_blur);opacity:0.7;fill-opacity:1" />
   <path d="M 499 206 L 631 206 A8,8 0 0 1 639 214 L 639 238 A8,8 0 0 1 631 246 L 499 246 A8,8 0 0 1 491 238 L 491 214 A8,8 0 0 1 499 206" fill="rgb(0,0,0)" stroke="rgb(0,0,0)" style="filter:url(#filter_blur);opacity:0.7;fill-opacity:1" />
   <path d="M 711 206 L 843 206 A8,8 0 0 1 851 214 L 851 238 A8,8 0 0 1 843 246 L 711 246 A8,8 0 0 1 703 238 L 703 214 A8,8 0 0 1 711 206" fill="rgb(0,0,0)" stroke="rgb(0,0,0)" style="filter:url(#filter_blur);opacity:0.7;fill-opacity:1" />
   <path d="M 507 294 L 639 294 A8,8 0 0 1 647 302 L 647 326 A8,8 0 0 1 639 334 L 507 334 A8,8 0 0 1 499 326 L 499 302 A8,8 0 0 1 507 294" fill="rgb(0,0,0)" stroke="rgb(0,0,0)" style="filter:url(#filter_blur);opacity:0.7;fill-opacity:1" />
@@ -54,6 +61,11 @@
   <path d="M 931 294 L 1063 294 A8,8 0 0 1 1071 302 L 1071 326 A8,8 0 0 1 1063 334 L 931 334 A8,8 0 0 1 923 326 L 923 302 A8,8 0 0 1 931 294" fill="rgb(0,0,0)" stroke="rgb(0,0,0)" style="filter:url(#filter_blur);opacity:0.7;fill-opacity:1" />
   <path d="M 927 290 L 1059 290 A8,8 0 0 1 1067 298 L 1067 322 A8,8 0 0 1 1059 330 L 927 330 A8,8 0 0 1 919 322 L 919 298 A8,8 0 0 1 927 290" fill="rgb(0,0,0)" stroke="rgb(0,0,0)" style="filter:url(#filter_blur);opacity:0.7;fill-opacity:1" />
   <path d="M 923 286 L 1055 286 A8,8 0 0 1 1063 294 L 1063 318 A8,8 0 0 1 1055 326 L 923 326 A8,8 0 0 1 915 318 L 915 294 A8,8 0 0 1 923 286" fill="rgb(0,0,0)" stroke="rgb(0,0,0)" style="filter:url(#filter_blur);opacity:0.7;fill-opacity:1" />
+  <path d="M 1347 206 L 1479 206 A8,8 0 0 1 1487 214 L 1487 238 A8,8 0 0 1 1479 246 L 1347 246 A8,8 0 0 1 1339 238 L 1339 214 A8,8 0 0 1 1347 206" fill="rgb(0,0,0)" stroke="rgb(0,0,0)" style="filter:url(#filter_blur);opacity:0.7;fill-opacity:1" />
+  <path d="M 1559 206 L 1691 206 A8,8 0 0 1 1699 214 L 1699 238 A8,8 0 0 1 1691 246 L 1559 246 A8,8 0 0 1 1551 238 L 1551 214 A8,8 0 0 1 1559 206" fill="rgb(0,0,0)" stroke="rgb(0,0,0)" style="filter:url(#filter_blur);opacity:0.7;fill-opacity:1" />
+  <path d="M 1355 294 L 1487 294 A8,8 0 0 1 1495 302 L 1495 326 A8,8 0 0 1 1487 334 L 1355 334 A8,8 0 0 1 1347 326 L 1347 302 A8,8 0 0 1 1355 294" fill="rgb(0,0,0)" stroke="rgb(0,0,0)" style="filter:url(#filter_blur);opacity:0.7;fill-opacity:1" />
+  <path d="M 1351 290 L 1483 290 A8,8 0 0 1 1491 298 L 1491 322 A8,8 0 0 1 1483 330 L 1351 330 A8,8 0 0 1 1343 322 L 1343 298 A8,8 0 0 1 1351 290" fill="rgb(0,0,0)" stroke="rgb(0,0,0)" style="filter:url(#filter_blur);opacity:0.7;fill-opacity:1" />
+  <path d="M 1347 286 L 1479 286 A8,8 0 0 1 1487 294 L 1487 318 A8,8 0 0 1 1479 326 L 1347 326 A8,8 0 0 1 1339 318 L 1339 294 A8,8 0 0 1 1347 286" fill="rgb(0,0,0)" stroke="rgb(0,0,0)" style="filter:url(#filter_blur);opacity:0.7;fill-opacity:1" />
   <path d="M 72 40 L 204 40 A8,8 0 0 1 212 48 L 212 72 A8,8 0 0 1 204 80 L 72 80 A8,8 0 0 1 64 72 L 64 48 A8,8 0 0 1 72 40" fill="rgb(255,255,255)" stroke="rgb(0,0,0)" />
   <text fill="rgb(0,0,0)" font-family="sansserif" font-size="11" font-style="normal" font-weight="normal" x="108" y="66">statip_sup</text>
   <path d="M 72 120 L 204 120 A8,8 0 0 1 212 128 L 212 152 A8,8 0 0 1 204 160 L 72 160 A8,8 0 0 1 64 152 L 64 128 A8,8 0 0 1 72 120" fill="rgb(255,255,255)" stroke="rgb(0,0,0)" />
@@ -64,6 +76,8 @@
   <text fill="rgb(0,0,0)" font-family="sansserif" font-size="11" font-style="normal" font-weight="normal" x="514" y="146">statip_value_sup</text>
   <path d="M 920 120 L 1052 120 A8,8 0 0 1 1060 128 L 1060 152 A8,8 0 0 1 1052 160 L 920 160 A8,8 0 0 1 912 152 L 912 128 A8,8 0 0 1 920 120" fill="rgb(255,255,255)" stroke="rgb(0,0,0)" />
   <text fill="rgb(0,0,0)" font-family="sansserif" font-size="11" font-style="normal" font-weight="normal" x="938" y="146">statip_input_sup</text>
+  <path d="M 1344 120 L 1476 120 A8,8 0 0 1 1484 128 L 1484 152 A8,8 0 0 1 1476 160 L 1344 160 A8,8 0 0 1 1336 152 L 1336 128 A8,8 0 0 1 1344 120" fill="rgb(255,255,255)" stroke="rgb(0,0,0)" />
+  <text fill="rgb(0,0,0)" font-family="sansserif" font-size="11" font-style="normal" font-weight="normal" x="1365" y="146">statip_http_sup</text>
   <path d="M 496 200 L 628 200 A8,8 0 0 1 636 208 L 636 232 A8,8 0 0 1 628 240 L 496 240 A8,8 0 0 1 488 232 L 488 208 A8,8 0 0 1 496 200" fill="rgb(255,255,255)" stroke="rgb(0,0,0)" />
   <text fill="rgb(0,0,0)" font-family="sansserif" font-size="11" font-style="normal" font-weight="normal" x="493" y="226">statip_value_single_sup</text>
   <path d="M 708 200 L 840 200 A8,8 0 0 1 848 208 L 848 232 A8,8 0 0 1 840 240 L 708 240 A8,8 0 0 1 700 232 L 700 208 A8,8 0 0 1 708 200" fill="rgb(255,255,255)" stroke="rgb(0,0,0)" />
@@ -84,12 +98,24 @@
   <path d="M 924 284 L 1056 284 A8,8 0 0 1 1064 292 L 1064 316 A8,8 0 0 1 1056 324 L 924 324 A8,8 0 0 1 916 316 L 916 292 A8,8 0 0 1 924 284" fill="rgb(255,255,255)" stroke="rgb(0,0,0)" />
   <path d="M 920 280 L 1052 280 A8,8 0 0 1 1060 288 L 1060 312 A8,8 0 0 1 1052 320 L 920 320 A8,8 0 0 1 912 312 L 912 288 A8,8 0 0 1 920 280" fill="rgb(255,255,255)" stroke="rgb(0,0,0)" />
   <text fill="rgb(0,0,0)" font-family="sansserif" font-size="11" font-style="normal" font-weight="normal" x="929" y="306">statip_input_client</text>
+  <path d="M 1344 200 L 1476 200 A8,8 0 0 1 1484 208 L 1484 232 A8,8 0 0 1 1476 240 L 1344 240 A8,8 0 0 1 1336 232 L 1336 208 A8,8 0 0 1 1344 200" fill="rgb(255,255,255)" stroke="rgb(0,0,0)" />
+  <text fill="rgb(0,0,0)" font-family="sansserif" font-size="11" font-style="normal" font-weight="normal" x="1344" y="226">statip_http_client_sup</text>
+  <path d="M 1556 200 L 1688 200 A8,8 0 0 1 1696 208 L 1696 232 A8,8 0 0 1 1688 240 L 1556 240 A8,8 0 0 1 1548 232 L 1548 208 A8,8 0 0 1 1556 200" fill="rgb(255,255,255)" stroke="rgb(0,0,0)" />
+  <text fill="rgb(0,0,0)" font-family="sansserif" font-size="11" font-style="normal" font-weight="normal" x="1562" y="226">statip_http_listener</text>
+  <path d="M 1352 288 L 1484 288 A8,8 0 0 1 1492 296 L 1492 320 A8,8 0 0 1 1484 328 L 1352 328 A8,8 0 0 1 1344 320 L 1344 296 A8,8 0 0 1 1352 288" fill="rgb(255,255,255)" stroke="rgb(0,0,0)" />
+  <path d="M 1348 284 L 1480 284 A8,8 0 0 1 1488 292 L 1488 316 A8,8 0 0 1 1480 324 L 1348 324 A8,8 0 0 1 1340 316 L 1340 292 A8,8 0 0 1 1348 284" fill="rgb(255,255,255)" stroke="rgb(0,0,0)" />
+  <path d="M 1344 280 L 1476 280 A8,8 0 0 1 1484 288 L 1484 312 A8,8 0 0 1 1476 320 L 1344 320 A8,8 0 0 1 1336 312 L 1336 288 A8,8 0 0 1 1344 280" fill="rgb(255,255,255)" stroke="rgb(0,0,0)" />
+  <text fill="rgb(0,0,0)" font-family="sansserif" font-size="11" font-style="normal" font-weight="normal" x="1356" y="306">statip_http_client</text>
+  <path d="M 138 80 L 138 112" fill="none" stroke="rgb(0,0,0)" />
+  <polygon fill="rgb(0,0,0)" points="138,119 134,112 142,112 138,119" stroke="rgb(0,0,0)" />
+  <path d="M 138 80 L 138 100" fill="none" stroke="rgb(0,0,0)" />
+  <path d="M 138 100 L 1410 100" fill="none" stroke="rgb(0,0,0)" />
+  <path d="M 1410 100 L 1410 112" fill="none" stroke="rgb(0,0,0)" />
+  <polygon fill="rgb(0,0,0)" points="1410,119 1406,112 1414,112 1410,119" stroke="rgb(0,0,0)" />
   <path d="M 138 80 L 138 100" fill="none" stroke="rgb(0,0,0)" />
   <path d="M 138 100 L 986 100" fill="none" stroke="rgb(0,0,0)" />
   <path d="M 986 100 L 986 112" fill="none" stroke="rgb(0,0,0)" />
   <polygon fill="rgb(0,0,0)" points="986,119 982,112 990,112 986,119" stroke="rgb(0,0,0)" />
-  <path d="M 138 80 L 138 112" fill="none" stroke="rgb(0,0,0)" />
-  <polygon fill="rgb(0,0,0)" points="138,119 134,112 142,112 138,119" stroke="rgb(0,0,0)" />
   <path d="M 138 80 L 138 100" fill="none" stroke="rgb(0,0,0)" />
   <path d="M 138 100 L 562 100" fill="none" stroke="rgb(0,0,0)" />
   <path d="M 562 100 L 562 112" fill="none" stroke="rgb(0,0,0)" />
@@ -98,22 +124,30 @@
   <path d="M 138 100 L 350 100" fill="none" stroke="rgb(0,0,0)" />
   <path d="M 350 100 L 350 112" fill="none" stroke="rgb(0,0,0)" />
   <polygon fill="rgb(0,0,0)" points="350,119 346,112 354,112 350,119" stroke="rgb(0,0,0)" />
-  <path d="M 562 160 L 562 192" fill="none" stroke="rgb(0,0,0)" />
-  <polygon fill="rgb(0,0,0)" points="562,199 558,192 566,192 562,199" stroke="rgb(0,0,0)" />
   <path d="M 562 160 L 562 180" fill="none" stroke="rgb(0,0,0)" />
   <path d="M 562 180 L 774 180" fill="none" stroke="rgb(0,0,0)" />
   <path d="M 774 180 L 774 192" fill="none" stroke="rgb(0,0,0)" />
   <polygon fill="rgb(0,0,0)" points="774,199 770,192 778,192 774,199" stroke="rgb(0,0,0)" />
+  <path d="M 562 160 L 562 192" fill="none" stroke="rgb(0,0,0)" />
+  <polygon fill="rgb(0,0,0)" points="562,199 558,192 566,192 562,199" stroke="rgb(0,0,0)" />
   <path d="M 986 160 L 986 192" fill="none" stroke="rgb(0,0,0)" />
   <polygon fill="rgb(0,0,0)" points="986,199 982,192 990,192 986,199" stroke="rgb(0,0,0)" />
   <path d="M 986 160 L 986 180" fill="none" stroke="rgb(0,0,0)" />
   <path d="M 986 180 L 1198 180" fill="none" stroke="rgb(0,0,0)" />
   <path d="M 1198 180 L 1198 192" fill="none" stroke="rgb(0,0,0)" />
   <polygon fill="rgb(0,0,0)" points="1198,199 1194,192 1202,192 1198,199" stroke="rgb(0,0,0)" />
+  <path d="M 1410 160 L 1410 192" fill="none" stroke="rgb(0,0,0)" />
+  <polygon fill="rgb(0,0,0)" points="1410,199 1406,192 1414,192 1410,199" stroke="rgb(0,0,0)" />
+  <path d="M 1410 160 L 1410 180" fill="none" stroke="rgb(0,0,0)" />
+  <path d="M 1410 180 L 1622 180" fill="none" stroke="rgb(0,0,0)" />
+  <path d="M 1622 180 L 1622 192" fill="none" stroke="rgb(0,0,0)" />
+  <polygon fill="rgb(0,0,0)" points="1622,199 1618,192 1626,192 1622,199" stroke="rgb(0,0,0)" />
   <path d="M 562 240 L 562 272" fill="none" stroke="rgb(0,0,0)" />
   <polygon fill="rgb(0,0,0)" points="562,279 558,272 566,272 562,279" stroke="rgb(0,0,0)" />
   <path d="M 774 240 L 774 272" fill="none" stroke="rgb(0,0,0)" />
   <polygon fill="rgb(0,0,0)" points="774,279 770,272 778,272 774,279" stroke="rgb(0,0,0)" />
   <path d="M 986 240 L 986 272" fill="none" stroke="rgb(0,0,0)" />
   <polygon fill="rgb(0,0,0)" points="986,279 982,272 990,272 986,279" stroke="rgb(0,0,0)" />
+  <path d="M 1410 240 L 1410 272" fill="none" stroke="rgb(0,0,0)" />
+  <polygon fill="rgb(0,0,0)" points="1410,279 1406,272 1414,272 1410,279" stroke="rgb(0,0,0)" />
 </svg>

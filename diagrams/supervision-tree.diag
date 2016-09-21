@@ -9,6 +9,7 @@ blockdiag {
   statip_sup -> statip_registry;
   statip_sup -> statip_value_sup;
   statip_sup -> statip_input_sup;
+  statip_sup -> statip_http_sup;
 
   statip_value_sup -> statip_value_single_sup;
   statip_value_sup -> statip_value_burst_sup;
@@ -20,9 +21,14 @@ blockdiag {
   statip_input_sup -> statip_input_listener;
   statip_input_client_sup -> statip_input_client;
 
+  statip_http_sup -> statip_http_client_sup;
+  statip_http_sup -> statip_http_listener;
+  statip_http_client_sup -> statip_http_client;
+
   statip_value_single [stacked];
   statip_value_burst  [stacked];
   statip_input_client [stacked];
+  statip_http_client  [stacked];
 }
 
 // vim:ft=dot
