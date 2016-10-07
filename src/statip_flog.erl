@@ -94,6 +94,12 @@ append({flog_write, FH} = _Handle, Name, Origin, Entry, ValueType) ->
   end.
 
 %% @doc Read an entry from a log file.
+%%
+%%   Incomplete record at the end of the file is reported simply as `eof',
+%%   with file position being set at the beginning of the record.
+%%
+%%   Damaged record is reported as `{error, bad_record}', with file position
+%%   being set at the beginning of the record.
 
 -spec read(handle(), pos_integer()) ->
   {ok, entry()} | eof | {error, Reason}
@@ -102,53 +108,6 @@ append({flog_write, FH} = _Handle, Name, Origin, Entry, ValueType) ->
 read({flog_write, _} = _Handle, _ReadBlock) ->
   {error, write_only};
 read({flog_read, FH} = _Handle, ReadBlock) ->
-  case try_read_record(FH, ReadBlock) of
-    {ok, Entry} ->
-      {ok, Entry};
-    eof ->
-      eof;
-    {error, bad_record} ->
-      % TODO: try to recover
-      'TODO';
-    {error, Reason} ->
-      {error, Reason}
-  end.
-
-%% @doc Describe an error returned by any function from this module.
-
--spec format_error(term()) ->
-  string().
-
-format_error(read_only = _Reason) ->
-  "file opened for reading only";
-format_error(write_only = _Reason) ->
-  "file opened for writing only";
-format_error(bad_record = _Reason) ->
-  "invalid record in log file";
-%format_error(badarg = _Reason) ->
-%  "bad argument"; % handled by `file:format_error()'
-format_error(Reason) ->
-  file:format_error(Reason).
-
-%%%---------------------------------------------------------------------------
-%%% reading from file handle
-
-%%----------------------------------------------------------
-%% try_read_record() {{{
-
-%% @doc Try reading a log entry from opened file.
-%%
-%%   Incomplete record at end of the file is reported simply as `eof', with
-%%   file position being set at the beginning of the record.
-%%
-%%   Damaged record is reported as `{error, bad_record}', with file position
-%%   being set at the beginning of the record.
-
--spec try_read_record(file:io_device(), pos_integer()) ->
-  {ok, entry()} | eof | {error, Reason}
-  when Reason :: bad_record | file:posix() | badarg.
-
-try_read_record(FH, ReadBlock) ->
   case read_record_header(FH, ReadBlock) of
     {ok, DataLength, Checksum} ->
       case read_record_body(FH, DataLength, Checksum) of
@@ -179,11 +138,25 @@ try_read_record(FH, ReadBlock) ->
       {error, Reason}
   end.
 
-%% }}}
-%%----------------------------------------------------------
-%% try_read_recover() {{{
+%% @doc Describe an error returned by any function from this module.
 
-%% }}}
+-spec format_error(term()) ->
+  string().
+
+format_error(read_only = _Reason) ->
+  "file opened for reading only";
+format_error(write_only = _Reason) ->
+  "file opened for writing only";
+format_error(bad_record = _Reason) ->
+  "invalid record in log file";
+%format_error(badarg = _Reason) ->
+%  "bad argument"; % handled by `file:format_error()'
+format_error(Reason) ->
+  file:format_error(Reason).
+
+%%%---------------------------------------------------------------------------
+%%% reading from file handle
+
 %%----------------------------------------------------------
 %% read_record_header(), read_record_body() {{{
 
@@ -357,7 +330,7 @@ parse_record_body(Data, Checksum) ->
 %%----------------------------------------------------------
 %% encode_log_entry() {{{
 
-%% @doc Encode log entry as a binary zero-padded to 8.
+%% @doc Encode log entry as a binary.
 
 -spec encode_log_entry(statip_value:name(), statip_value:origin(),
                        Entry, single | burst) ->
