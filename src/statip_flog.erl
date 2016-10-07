@@ -2,7 +2,6 @@
 %%% @doc
 %%%   Event log file.
 %%%
-%%% @todo Read error recovery
 %%% @todo Encoding less redundant than `term_to_binary(#value{})'
 %%% @end
 %%%---------------------------------------------------------------------------
@@ -11,7 +10,7 @@
 
 %% public interface
 -export([open/2, close/1]).
--export([append/5, read/2]).
+-export([append/5, read/2, recover/2]).
 -export([format_error/1]).
 
 -export_type([handle/0, entry/0]).
@@ -30,6 +29,7 @@
   | {single, statip_value:name(), statip_value:origin(), #value{}}
   | {burst,  statip_value:name(), statip_value:origin(), #value{}}.
 
+%% XXX: magic should be a sequence of unique bytes
 -define(RECORD_HEADER_MAGIC, <<166,154,184,182,146,161,251,150>>).
 -define(RECORD_HEADER_MAGIC_SIZE, 8). % size(?RECORD_HEADER_MAGIC)
 -define(RECORD_HEADER_SIZE, (?RECORD_HEADER_MAGIC_SIZE + 4 + 4)). % +2x 32 bits
@@ -100,6 +100,8 @@ append({flog_write, FH} = _Handle, Name, Origin, Entry, ValueType) ->
 %%
 %%   Damaged record is reported as `{error, bad_record}', with file position
 %%   being set at the beginning of the record.
+%%
+%% @see recover/2
 
 -spec read(handle(), pos_integer()) ->
   {ok, entry()} | eof | {error, Reason}
@@ -134,6 +136,46 @@ read({flog_read, FH} = _Handle, ReadBlock) ->
       {error, bad_record};
     {error, bad_header} -> % invalid magic
       {error, bad_record};
+    {error, Reason} ->
+      {error, Reason}
+  end.
+
+%% @doc Function that tries to find next valid record after {@link read/2}
+%%   error.
+%%
+%%   On success, file position is set to just after the record. When no valid
+%%   record was found, the file position is advanced by `ReadBlock'.
+
+-spec recover(handle(), pos_integer()) ->
+  {ok, entry()} | none | eof | {error, write_only | file:posix() | badarg}.
+
+recover({flog_write, _} = _Handle, _ReadBlock) ->
+  {error, write_only};
+recover({flog_read, FH} = _Handle, ReadBlock) ->
+  {ok, Position} = file:position(FH, cur),
+  case file:read(FH, ReadBlock) of
+    {ok, Data} ->
+      RecordCandidates = [
+        Offset ||
+        {Offset, _Length} <- binary:matches(Data, ?RECORD_HEADER_MAGIC),
+        Offset rem 8 == 0
+      ],
+      case find_record(RecordCandidates, ReadBlock, FH, Position) of
+        {ok, Entry} ->
+          {ok, Entry};
+        none ->
+          % there could have been reads in `find_record()', so we need to
+          % restore the position
+          {ok, _} = file:position(FH, {bof, Position + size(Data)}),
+          none;
+        {error, Reason} ->
+          % there could have been reads; read error may mean the seek will
+          % also fail, so ignore its status
+          _ = file:position(FH, {bof, Position + size(Data)}),
+          {error, Reason}
+      end;
+    eof ->
+      eof;
     {error, Reason} ->
       {error, Reason}
   end.
@@ -214,6 +256,35 @@ read_record_body(FH, Length, Checksum) ->
     eof ->
       eof;
     {error, Reason} ->
+      {error, Reason}
+  end.
+
+%% }}}
+%%----------------------------------------------------------
+%% find_record() {{{
+
+%% @doc Try reading a record from each of the specified offsets, stopping at
+%%   the first success.
+
+-spec find_record([non_neg_integer()], pos_integer(), file:io_device(),
+                  non_neg_integer()) ->
+  {ok, entry()} | none | {error, file:posix() | badarg}.
+
+find_record([] = _Candidates, _ReadBlock, _FH, _ReadStart) ->
+  none;
+find_record([Offset | Rest] = _Candidates, ReadBlock, FH, ReadStart) ->
+  {ok, _} = file:position(FH, {bof, ReadStart + Offset}),
+  case read({flog_read, FH}, ReadBlock) of
+    {ok, Entry} ->
+      {ok, Entry};
+    eof ->
+      % there could be a shorter valid entry after this place, so don't
+      % give up just yet!
+      find_record(Rest, ReadBlock, FH, ReadStart);
+    {error, bad_record} ->
+      find_record(Rest, ReadBlock, FH, ReadStart);
+    {error, Reason} ->
+      % file read error interrupts the search
       {error, Reason}
   end.
 
