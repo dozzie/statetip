@@ -426,6 +426,8 @@ when not is_binary(Name);
      Origin /= undefined, not is_binary(Origin);
      ValueType /= single, ValueType /= burst ->
   {error, badarg};
+encode_log_entry(_Name, _Origin, {clear, _Key} = _Entry, burst = _ValueType) ->
+  {error, badarg}; % operation not expected for burst values
 encode_log_entry(Name, Origin, clear = _Entry, _ValueType) ->
   Payload = [?TYPE_CLEAR, store(Name), store(Origin)],
   {ok, Payload};
