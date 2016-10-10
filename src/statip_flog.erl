@@ -3,6 +3,7 @@
 %%%   Event log file.
 %%%
 %%% @todo Encoding less redundant than `term_to_binary(#value{})'
+%%% @todo Document that read block size should be divisible by 8
 %%% @end
 %%%---------------------------------------------------------------------------
 
@@ -146,7 +147,8 @@ read({flog_read, FH} = _Handle, ReadBlock) ->
 %%   error.
 %%
 %%   On success, file position is set to just after the record. When no valid
-%%   record was found, the file position is advanced by `ReadBlock'.
+%%   record was found, the file position is advanced by `ReadBlock' or to the
+%%   end of file.
 
 -spec recover(handle(), pos_integer()) ->
   {ok, entry()} | none | eof | {error, write_only | file:posix() | badarg}.
@@ -154,8 +156,17 @@ read({flog_read, FH} = _Handle, ReadBlock) ->
 recover({flog_write, _} = _Handle, _ReadBlock) ->
   {error, write_only};
 recover({flog_read, FH} = _Handle, ReadBlock) ->
-  {ok, Position} = file:position(FH, cur),
+  % near-EOF reads or `ReadBlock' not divisible by 8 could have caused
+  % misalignment; go back a little if necessary
+  case file:position(FH, cur) of
+    {ok, Position} when Position rem 8 == 0 -> ok;
+    {ok, Pos} -> {ok, Position} = file:position(FH, {cur, -(Pos rem 8)})
+  end,
   case file:read(FH, ReadBlock) of
+    {ok, Data} when size(Data) < 8 ->
+      % when file size is not divisible by 8, `recover()' would always return
+      % `none' instead of `eof'
+      eof;
     {ok, Data} ->
       RecordCandidates = [
         Offset ||
