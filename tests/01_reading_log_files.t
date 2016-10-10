@@ -14,7 +14,6 @@
 test1() ->
   {ok, H} = open_data("data/record/damaged.eof.flog"),
   estap:error(read_data(H), "first read()"),
-  estap:is(recover_data(H), none, "recover()"),
   estap:is(recover_data(H), eof, "recover()"),
   close_data(H),
   estap:all_ok().
@@ -33,7 +32,6 @@ test3() ->
   {ok, H} = open_data("data/record/incomplete.eof.flog"),
   estap:is(read_data(H), eof, "first read()"),
   estap:is(read_data(H), eof, "second read()"),
-  estap:is(recover_data(H), none, "recover()"),
   estap:is(recover_data(H), eof, "recover()"),
   close_data(H),
   estap:all_ok().
@@ -54,7 +52,6 @@ test5() ->
   % record spans into two read blocks, so two recover() calls move past it and
   % the second one hits EOF
   estap:is(recover_data(H), none, "first recover()"),
-  estap:is(recover_data(H), none, "second recover()"),
   estap:is(recover_data(H), eof, "last recover()"),
   estap:is(read_data(H), eof, "last read()"),
   close_data(H),
@@ -77,7 +74,6 @@ test6() ->
 test7() ->
   {ok, H} = open_data("data/record/bogus_good.eof.flog"),
   estap:error(read_data(H), "first read()"),
-  estap:is(recover_data(H), none, "recover()"),
   estap:is(recover_data(H), eof, "recover()"),
   close_data(H),
   estap:all_ok().
@@ -98,7 +94,6 @@ test8() ->
 test11() ->
   {ok, H} = open_data("data/record/garbage.small.eof.flog"),
   estap:error(read_data(H), "first read()"),
-  estap:is(recover_data(H), none, "recover()"),
   estap:is(recover_data(H), eof, "recover()"),
   close_data(H),
   estap:all_ok().

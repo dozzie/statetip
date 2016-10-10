@@ -163,10 +163,6 @@ recover({flog_read, FH} = _Handle, ReadBlock) ->
     {ok, Pos} -> {ok, Position} = file:position(FH, {cur, -(Pos rem 8)})
   end,
   case file:read(FH, ReadBlock) of
-    {ok, Data} when size(Data) < 8 ->
-      % when file size is not divisible by 8, `recover()' would always return
-      % `none' instead of `eof'
-      eof;
     {ok, Data} ->
       RecordCandidates = [
         Offset ||
@@ -176,11 +172,15 @@ recover({flog_read, FH} = _Handle, ReadBlock) ->
       case find_record(RecordCandidates, ReadBlock, FH, Position) of
         {ok, Entry} ->
           {ok, Entry};
-        none ->
-          % there could have been reads in `find_record()', so we need to
-          % restore the position
+        none when size(Data) == ReadBlock ->
+          % position uncertain, as `find_record()' could have called `read()'
           {ok, _} = file:position(FH, {bof, Position + size(Data)}),
           none;
+        none when size(Data) < ReadBlock ->
+          % position uncertain, as `find_record()' could have called `read()'
+          {ok, _} = file:position(FH, {bof, Position + size(Data)}),
+          % `file:read()' hit EOF while reading the block
+          eof;
         {error, Reason} ->
           % there could have been reads; read error may mean the seek will
           % also fail, so ignore its status
