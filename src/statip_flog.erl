@@ -15,6 +15,8 @@
 
 -export_type([handle/0, entry/0]).
 
+-on_load(load_required_atoms/0).
+
 %%%---------------------------------------------------------------------------
 %%% types {{{
 
@@ -493,6 +495,23 @@ null_undefined(Bin) -> Bin.
 
 %% }}}
 %%----------------------------------------------------------
+
+%%%---------------------------------------------------------------------------
+
+%% @doc Load all atoms that can be stored in records in log file.
+%%
+%%   This prevents {@link read/2} from failing mysteriously on an otherwise
+%%   completely good record when Erlang is started in interactive mode.
+
+load_required_atoms() ->
+  required_atoms(),
+  ok.
+
+required_atoms() ->
+  _Required = [
+    {severity, [expected, warning, critical]},
+    {info, [null]}
+  ].
 
 %%%---------------------------------------------------------------------------
 %%% vim:ft=erlang:foldmethod=marker
