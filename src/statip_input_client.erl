@@ -276,8 +276,8 @@ extract_record([{<<"severity">>, <<"expected">>} | Rest], Meta, Record) ->
   extract_record(Rest, Meta, Record#value{severity = expected});
 extract_record([{<<"severity">>, <<"warning">>} | Rest], Meta, Record) ->
   extract_record(Rest, Meta, Record#value{severity = warning});
-extract_record([{<<"severity">>, <<"critical">>} | Rest], Meta, Record) ->
-  extract_record(Rest, Meta, Record#value{severity = critical});
+extract_record([{<<"severity">>, <<"error">>} | Rest], Meta, Record) ->
+  extract_record(Rest, Meta, Record#value{severity = error});
 extract_record([{<<"severity">>, Severity} | _Rest], _Meta, _Record) ->
   erlang:error({badmatch, Severity}); % any other severity is invalid
 

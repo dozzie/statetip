@@ -522,7 +522,7 @@ load_required_atoms() ->
 
 required_atoms() ->
   _Required = [
-    {severity, [expected, warning, critical]},
+    {severity, [expected, warning, error]},
     {info, [null]}
   ].
 
