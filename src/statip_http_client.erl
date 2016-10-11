@@ -218,21 +218,31 @@ process_request(_State = #state{path = Path, headers = _Headers}) ->
     {ok, {json_all, _Name               }} -> {error, 404};
     {ok, {json_all, _Name, _Origin, _Key}} -> {error, 404};
     {ok, {all, Name, Origin}} ->
-      Records = statip_value:list_records(Name, Origin),
-      Body = lists:map(
-        fun(R) ->
-          {ok, JSON} = statip_json:encode(encode_record(Name, Origin, R)),
-          [JSON, $\n]
-        end,
-        Records
-      ),
-      {ok, [content_type(list)], Body};
+      % FIXME: `statip_value:list_records()' can return `none'
+      case statip_value:list_records(Name, Origin) of
+        Records when is_list(Records) ->
+          Body = lists:map(
+            fun(R) ->
+              {ok, JSON} = statip_json:encode(encode_record(Name, Origin, R)),
+              [JSON, $\n]
+            end,
+            Records
+          ),
+          {ok, [content_type(list)], Body};
+        none ->
+          {error, 404}
+      end;
     {ok, {json_all, Name, Origin}} ->
-      Records = statip_value:list_records(Name, Origin),
-      {ok, JSON} = statip_json:encode([
-        encode_record(Name, Origin, R) || R <- Records
-      ]),
-      {ok, [content_type(json)], [JSON, $\n]};
+      % FIXME: `statip_value:list_records()' can return `none'
+      case statip_value:list_records(Name, Origin) of
+        Records when is_list(Records) ->
+          {ok, JSON} = statip_json:encode([
+            encode_record(Name, Origin, R) || R <- Records
+          ]),
+          {ok, [content_type(json)], [JSON, $\n]};
+        none ->
+          {error, 404}
+      end;
     {ok, Type} when Type == list; Type == json ->
       Names = statip_value:list_names(),
       {ok, [content_type(Type)], format(Type, Names)};
