@@ -8,6 +8,7 @@
     {input, {localhost, 3012}},
     {http,  {localhost, 3082}},
     %{state_dir, "/var/lib/statetip"},
+    %{error_logger_file, "/var/log/statetip/erlang.log},
     {default_expiry, 43200} % 12h
   ]}
 ]}.

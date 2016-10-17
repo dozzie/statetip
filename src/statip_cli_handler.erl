@@ -34,7 +34,8 @@
 -type config() :: [{config_key(), config_value() | config()}].
 
 -record(opts, {
-  op :: start | status | stop | reload_config | dist_start | dist_stop,
+  op :: start | status | stop | reload_config | reopen_logs
+      | dist_start | dist_stop,
   admin_socket :: file:filename(),
   options :: [{atom(), term()}]
 }).
@@ -229,6 +230,10 @@ format_error({configure, {app_load, Error}} = _Reason) ->
 format_error({configure, bad_config} = _Reason) ->
   % TODO: be more precise
   "invalid [erlang] section in config";
+format_error({configure, {log_file, Error}} = _Reason) ->
+  ["error opening log file: ", file:format_error(Error)];
+format_error({configure, bad_logger_module} = _Reason) ->
+  "can't load `statip_disk_h' module";
 
 %% TODO: `indira_app:daemonize()' errors
 
@@ -264,6 +269,7 @@ help(ScriptName) ->
     "  ", ScriptName, " [--socket <path>] status [--wait [--timeout <seconds>]]\n",
     "  ", ScriptName, " [--socket <path>] stop [--timeout <seconds>] [--print-pid]\n",
     "  ", ScriptName, " [--socket <path>] reload-config\n",
+    "  ", ScriptName, " [--socket <path>] reopen-logs\n",
     "Distributed Erlang support:\n",
     "  ", ScriptName, " [--socket <path>] dist-erl-start\n",
     "  ", ScriptName, " [--socket <path>] dist-erl-stop\n",
@@ -300,7 +306,10 @@ read_config_file(ConfigFile) ->
 setup_applications(Config, Options) ->
   case configure_statip(Config, Options) of
     ok ->
-      prepare_indira_options(Config, Options);
+      case setup_logging(Config, Options) of
+        ok -> prepare_indira_options(Config, Options);
+        {error, Reason} -> {error, Reason}
+      end;
     {error, Reason} ->
       {error, Reason}
   end.
@@ -372,6 +381,31 @@ parse_listen_spec(Spec) ->
 
 %% }}}
 %%----------------------------------------------------------
+%% setup_logging() {{{
+
+setup_logging(Config, _Options = #opts{options = CLIOpts}) ->
+  case proplists:get_bool(debug, CLIOpts) of
+    true -> ok = application:start(sasl);
+    false -> ok
+  end,
+  ErlangConfig = proplists:get_value(<<"erlang">>, Config, []),
+  case proplists:get_value(<<"log_file">>, ErlangConfig) of
+    File when is_binary(File) ->
+      % XXX: see also `statip_command_handler:handle_command()'
+      ok = indira_app:set_option(statip, error_logger_file, File),
+      case error_logger:add_report_handler(statip_disk_h, [File]) of
+        ok -> ok;
+        {error, Reason} -> {error, {log_file, Reason}};
+        {'EXIT', _Reason} -> {error, bad_logger_module}
+      end;
+    undefined ->
+      ok;
+    _ ->
+      {error, bad_config}
+  end.
+
+%% }}}
+%%----------------------------------------------------------
 %% prepare_indira_options() {{{
 
 %% @doc Prepare options for {@link indira_app:daemonize/2} from loaded config.
@@ -390,23 +424,20 @@ prepare_indira_options(GlobalConfig, _Options = #opts{options = CLIOpts}) ->
     NodeName = proplists:get_value(<<"node_name">>, ErlangConfig),
     true = (is_binary(NodeName) orelse NodeName == undefined),
     NameType = proplists:get_value(<<"name_type">>, ErlangConfig),
-    true = (is_binary(NameType) orelse NameType == undefined),
+    true = (NameType == undefined orelse
+            NameType == <<"longnames">> orelse NameType == <<"shortnames">>),
     Cookie = case proplists:get_value(<<"cookie_file">>, ErlangConfig) of
       CookieFile when is_binary(CookieFile) -> {file, CookieFile};
-      C -> C
+      undefined -> none
     end,
     NetStart = proplists:get_bool(<<"distributed_immediate">>, ErlangConfig),
-    StartApps = case proplists:get_bool(debug, CLIOpts) of
-      true -> [{start_before, sasl}];
-      false -> []
-    end,
+    true = is_boolean(NetStart),
     IndiraOptions = [
       {pidfile, PidFile},
       {node_name, ensure_atom(NodeName)},
       {name_type, ensure_atom(NameType)},
       {cookie, Cookie},
-      {net_start, NetStart} |
-      StartApps
+      {net_start, NetStart}
     ],
     {ok, IndiraOptions}
   catch
@@ -493,6 +524,7 @@ cli_opt(Arg, Opts = #opts{op = undefined}) ->
     "status" -> Opts#opts{op = status};
     "stop"   -> Opts#opts{op = stop};
     "reload-config"  -> Opts#opts{op = reload_config};
+    "reopen-logs"    -> Opts#opts{op = reopen_logs};
     "dist-erl-start" -> Opts#opts{op = dist_start};
     "dist-erl-stop"  -> Opts#opts{op = dist_stop};
     _ -> {error, bad_command}

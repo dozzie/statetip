@@ -13,7 +13,7 @@
 %% gen_indira_command callbacks
 -export([handle_command/2]).
 
-%% interface for xapp_cli
+%% interface for statip_cli_handler
 -export([format_request/1, parse_reply/2, hardcoded_reply/1]).
 
 %%%---------------------------------------------------------------------------
@@ -41,6 +41,24 @@ handle_command([{<<"command">>, <<"stop">>}] = _Command, _Args) ->
 handle_command([{<<"command">>, <<"reload_config">>}] = _Command, _Args) ->
   [{result, todo}];
 
+handle_command([{<<"command">>, <<"reopen_logs">>}] = _Command, _Args) ->
+  % the only log file that can possibly be opened is disk log for error_logger
+  case application:get_env(statip, error_logger_file) of
+    {ok, File} ->
+      case reopen_error_logger_file(File) of
+        ok ->
+          [{result, ok}];
+        {error, bad_logger_module} ->
+          [{result, error},
+            {message, <<"can't load `statip_disk_h' module">>}];
+        {error, {open, Reason}} -> % `Reason' is a string
+          [{result, error},
+            {message, iolist_to_binary(["can't open ", File, ": ", Reason])}]
+      end;
+    undefined ->
+      [{result, ok}]
+  end;
+
 handle_command([{<<"command">>, <<"dist_start">>}] = _Command, _Args) ->
   case indira_app:distributed_start() of
     ok ->
@@ -63,7 +81,7 @@ handle_command(_Command, _Args) ->
   [{result, error}, {message, <<"unrecognized command">>}].
 
 %%%---------------------------------------------------------------------------
-%%% interface for xapp_cli
+%%% interface for statip_cli_handler
 %%%---------------------------------------------------------------------------
 
 %% @doc Encode administrative command as a serializable structure.
@@ -75,6 +93,7 @@ format_request(status        = Command) -> [{command, Command}, {wait, false}];
 format_request(status_wait   = Command) -> [{command, Command}, {wait, true}];
 format_request(stop          = Command) -> [{command, Command}];
 format_request(reload_config = Command) -> [{command, Command}];
+format_request(reopen_logs   = Command) -> [{command, Command}];
 format_request(dist_start    = Command) -> [{command, Command}];
 format_request(dist_stop     = Command) -> [{command, Command}].
 
@@ -105,7 +124,8 @@ parse_reply([{<<"result">>, <<"stopped">>}]  = _Reply, status = _Command) ->
 parse_reply(_Reply, _Command) ->
   {error, unrecognized_reply}.
 
-%% @doc Artificial replies for `xapp_cli' when no reply was received.
+%% @doc Artificial replies for `statip_cli_handler' when no reply was
+%%   received.
 
 -spec hardcoded_reply(generic_ok | daemon_stopped) ->
   gen_indira_cli:reply().
@@ -127,6 +147,28 @@ is_started() ->
   case whereis(statip_sup) of
     Pid when is_pid(Pid) -> true;
     _ -> false
+  end.
+
+-spec reopen_error_logger_file(file:filename()) ->
+  ok | {error, bad_logger_module | {open, string()}}.
+
+reopen_error_logger_file(File) ->
+  case gen_event:call(error_logger, statip_disk_h, reopen) of
+    ok ->
+      ok;
+    {error, bad_module} ->
+      % possibly removed in previous attempt to reopen the log file
+      case error_logger:add_report_handler(statip_disk_h, [File]) of
+        ok ->
+          ok;
+        {error, Reason} ->
+          {error, {open, statip_disk_h:format_error(Reason)}};
+        {'EXIT', _Reason} ->
+          % missing module? should not happen
+          {error, bad_logger_module}
+      end;
+    {error, Reason} ->
+      {error, {open, statip_disk_h:format_error(Reason)}}
   end.
 
 %%%---------------------------------------------------------------------------
