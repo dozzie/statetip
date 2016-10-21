@@ -51,11 +51,10 @@
 %% @private
 %% @doc Parse command line arguments and decode opeartion from them.
 
-parse_arguments(Args, [DefAdminSocket, DefPidFile, DefConfig] = _Defaults) ->
+parse_arguments(Args, [DefAdminSocket, DefConfig] = _Defaults) ->
   EmptyOptions = #opts{
     admin_socket = DefAdminSocket,
     options = [
-      {pidfile, DefPidFile},
       {config, DefConfig}
     ]
   },

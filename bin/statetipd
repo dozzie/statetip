@@ -5,7 +5,6 @@
 -define(CLI_MODULE, statip_cli_handler).
 -define(CONFIG_FILE,  "/etc/statetip/statetip.toml").
 -define(ADMIN_SOCKET, "/var/run/statetip/control").
--define(PIDFILE,      "/var/run/statetip/pid").
 
 %%----------------------------------------------------------------------------
 
@@ -20,7 +19,7 @@ main(["-h"])     -> help();
 main(["--help"]) -> help();
 
 main(Args) ->
-  Defaults = [?ADMIN_SOCKET, ?PIDFILE, ?CONFIG_FILE],
+  Defaults = [?ADMIN_SOCKET, ?CONFIG_FILE],
   case indira_cli:execute(Args, ?CLI_MODULE, Defaults) of
     ok ->
       ok;
