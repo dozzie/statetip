@@ -15,6 +15,8 @@
 %% supervisor callbacks
 -export([init/1]).
 
+-include("statip_boot.hrl").
+
 %%%---------------------------------------------------------------------------
 %%% supervision tree API
 %%%---------------------------------------------------------------------------
@@ -44,6 +46,9 @@ init([] = _Args) ->
     {statip_value_sup,
       {statip_value_sup, start_link, []},
       permanent, 5000, supervisor, [statip_value_sup]},
+    {statip_state_log,
+      {statip_state_log, start_link, []},
+      permanent, 5000, worker, [statip_state_log]},
     {statip_input_sup,
       {statip_input_sup, start_link, []},
       permanent, 5000, supervisor, [statip_input_sup]},
@@ -51,6 +56,10 @@ init([] = _Args) ->
       {statip_http_sup, start_link, []},
       permanent, 5000, supervisor, [statip_http_sup]}
   ],
+  ?ETS_BOOT_TABLE = ets:new(?ETS_BOOT_TABLE, [
+    named_table, public, set,
+    {read_concurrency, true}
+  ]),
   {ok, {Strategy, Children}}.
 
 %%%---------------------------------------------------------------------------
