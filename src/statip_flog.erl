@@ -33,6 +33,7 @@
 -type entry() ::
     {clear,  statip_value:name(), statip_value:origin()}
   | {clear,  statip_value:name(), statip_value:origin(), statip_value:key()}
+  | {rotate, statip_value:name(), statip_value:origin()}
   | {single, statip_value:name(), statip_value:origin(), #value{}}
   | {burst,  statip_value:name(), statip_value:origin(), #value{}}.
 %% Record entry read from log file.
@@ -50,6 +51,7 @@
 -define(TYPE_CLEAR_KEY, <<"k">>).
 -define(TYPE_SINGLE,    <<"s">>).
 -define(TYPE_BURST,     <<"b">>).
+-define(TYPE_BURST_ROTATE, <<"r">>).
 
 %% }}}
 %%----------------------------------------------------------
@@ -139,7 +141,7 @@ file_size({flog_write, FH} = _Handle) ->
 -spec append(handle(), statip_value:name(), statip_value:origin(), Entry,
              single | burst) ->
   ok | {error, read_only | file:posix() | badarg}
-  when Entry :: #value{} | clear | {clear, statip_value:key()}.
+  when Entry :: #value{} | rotate | clear | {clear, statip_value:key()}.
 
 append({flog_read, _} = _Handle, _Name, _Origin, _Entry, _ValueType) ->
   {error, read_only};
@@ -479,7 +481,7 @@ file_read_exact(FH, Size) ->
 -spec build_record(statip_value:name(), statip_value:origin(),
                    Entry, single | burst) ->
   {ok, iolist()} | {error, badarg}
-  when Entry :: #value{} | clear | {clear, statip_value:key()}.
+  when Entry :: #value{} | rotate | clear | {clear, statip_value:key()}.
 
 build_record(Name, Origin, Entry, ValueType) ->
   case encode_log_entry(Name, Origin, Entry, ValueType) of
@@ -558,7 +560,7 @@ parse_record_body(Data, Checksum) ->
 -spec encode_log_entry(statip_value:name(), statip_value:origin(),
                        Entry, single | burst) ->
   {ok, iolist()} | {error, badarg}
-  when Entry :: #value{} | clear | {clear, statip_value:key()}.
+  when Entry :: #value{} | rotate | clear | {clear, statip_value:key()}.
 
 encode_log_entry(Name, Origin, _Entry, ValueType)
 when not is_binary(Name);
@@ -573,6 +575,9 @@ encode_log_entry(Name, Origin, clear = _Entry, _ValueType) ->
 encode_log_entry(Name, Origin, {clear, Key} = _Entry, _ValueType)
 when is_binary(Key) ->
   Payload = [?TYPE_CLEAR_KEY, store(Name), store(Origin), store(Key)],
+  {ok, Payload};
+encode_log_entry(Name, Origin, rotate = _Entry, burst = _ValueType) ->
+  Payload = [?TYPE_BURST_ROTATE, store(Name), store(Origin)],
   {ok, Payload};
 encode_log_entry(Name, Origin, Entry = #value{key = Key}, ValueType) ->
   PayloadBody = [
@@ -621,6 +626,11 @@ decode_log_entry(<<Type:1/binary, Data/binary>> = _Payload) ->
         KeyLen:32/integer, Key:KeyLen/binary,
         _Padding/binary>> = Data,
       {clear, Name, null_undefined(Origin), Key};
+    ?TYPE_BURST_ROTATE ->
+      <<NameLen:32/integer, Name:NameLen/binary,
+        OriginLen:32/integer, Origin:OriginLen/binary,
+        _Padding/binary>> = Data,
+      {rotate, Name, null_undefined(Origin)};
     ?TYPE_SINGLE ->
       <<NameLen:32/integer, Name:NameLen/binary,
         OriginLen:32/integer, Origin:OriginLen/binary,
@@ -681,16 +691,7 @@ try_recover(Handle, ReadBlock, RecoverTries) when RecoverTries > 0 ->
   records().
 
 replay_add_entry({clear, Name, Origin} = _Entry, State) ->
-  case gb_trees:lookup({Name, Origin}, State) of
-    {value, {single, _KeyMap}} ->
-      _NewState = gb_trees:delete({Name, Origin}, State);
-    {value, {burst, none = _KeyMap, _OldKeyMap}} ->
-      _NewState = gb_trees:delete({Name, Origin}, State);
-    {value, {burst, KeyMap, _OldKeyMap}} ->
-      _NewState = gb_trees:enter({Name, Origin}, {burst, none, KeyMap}, State);
-    none ->
-      State
-  end;
+  _NewState = gb_trees:delete_any({Name, Origin}, State);
 
 replay_add_entry({clear, Name, Origin, Key} = _Entry, State) ->
   case gb_trees:lookup({Name, Origin}, State) of
@@ -699,6 +700,18 @@ replay_add_entry({clear, Name, Origin, Key} = _Entry, State) ->
       _NewState = gb_trees:enter({Name, Origin}, NewValue, State);
     {value, {burst, _KeyMap, _OldKeyMap}} ->
       State; % operation not expected for burst values
+    none ->
+      State
+  end;
+
+replay_add_entry({rotate, Name, Origin} = _Entry, State) ->
+  case gb_trees:lookup({Name, Origin}, State) of
+    {value, {single, _KeyMap}} ->
+      State; % operation not expected for single values
+    {value, {burst, none = _KeyMap, _OldKeyMap}} ->
+      _NewState = gb_trees:delete({Name, Origin}, State);
+    {value, {burst, KeyMap, _OldKeyMap}} ->
+      _NewState = gb_trees:enter({Name, Origin}, {burst, none, KeyMap}, State);
     none ->
       State
   end;
