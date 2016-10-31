@@ -171,6 +171,11 @@ test_single_burst() ->
     {burst, "seqB", undefined, record("b2.two")}
   ]),
   Expected = [
+    % NOTE: {burst,...} < {single,...}
+    {burst, "seqB", undefined, "b1.one", undefined},
+    {burst, "seqB", undefined, "b2.two", undefined},
+    {single, "seqA", undefined, "s1.one", undefined},
+    {single, "seqA", undefined, "s2.two", undefined}
   ],
   estap:eq(replay_file(File), Expected, "replay"),
   estap:all_ok().
@@ -186,6 +191,11 @@ test_single_burst_rotate() ->
     {rotate, "seqB", undefined}
   ]),
   Expected = [
+    % NOTE: {burst,...} < {single,...}
+    {burst, "seqB", undefined, "b1.one", undefined},
+    {burst, "seqB", undefined, "b2.two", undefined},
+    {single, "seqA", undefined, "s1.one", undefined},
+    {single, "seqA", undefined, "s2.two", undefined}
   ],
   estap:eq(replay_file(File), Expected, "replay"),
   estap:all_ok().
