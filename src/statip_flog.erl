@@ -725,7 +725,7 @@ replay_add_entry({single, Name, Origin, Value = #value{key = Key}} = _Entry,
     {value, {burst, _KeyMap, _OldKeyMap}} ->
       State; % record incompatible with remembered value type
     none ->
-      NewKeyMap = gb_trees:empty(),
+      NewKeyMap = gb_trees:insert(Key, Value, gb_trees:empty()),
       _NewState = gb_trees:enter({Name, Origin}, {single, NewKeyMap}, State)
   end;
 
