@@ -43,6 +43,40 @@ test_burst() ->
   estap:eq(replay_file(File), Expected, "replay"),
   estap:all_ok().
 
+-test("single A, single A.1'").
+test_single_replace() ->
+  File = "data/replay/single-replace.flog",
+  ok = write_file(File, [
+    {single, "sequence", undefined, record("1.one", "first")},
+    {single, "sequence", undefined, record("2.two", "second")},
+    {single, "sequence", undefined, record("3.three", "third")},
+    {single, "sequence", undefined, record("2.two", "fourth")}
+  ]),
+  Expected = [
+    {single, "sequence", undefined, "1.one", "first"},
+    {single, "sequence", undefined, "2.two", "fourth"},
+    {single, "sequence", undefined, "3.three", "third"}
+  ],
+  estap:eq(replay_file(File), Expected, "replay"),
+  estap:all_ok().
+
+-test("burst A, burst A.1'").
+test_burst_replace() ->
+  File = "data/replay/burst-replace.flog",
+  ok = write_file(File, [
+    {burst, "sequence", undefined, record("1.one", "first")},
+    {burst, "sequence", undefined, record("2.two", "second")},
+    {burst, "sequence", undefined, record("3.three", "third")},
+    {burst, "sequence", undefined, record("2.two", "fourth")}
+  ]),
+  Expected = [
+    {burst, "sequence", undefined, "1.one", "first"},
+    {burst, "sequence", undefined, "2.two", "fourth"},
+    {burst, "sequence", undefined, "3.three", "third"}
+  ],
+  estap:eq(replay_file(File), Expected, "replay"),
+  estap:all_ok().
+
 -test("single, clear, single").
 test_single_clear_single() ->
   File = "data/replay/single_clear_single.flog",
