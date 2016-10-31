@@ -695,9 +695,9 @@ replay_add_entry({clear, Name, Origin} = _Entry, State) ->
 
 replay_add_entry({clear, Name, Origin, Key} = _Entry, State) ->
   case gb_trees:lookup({Name, Origin}, State) of
-    {value, {single, _KeyMap}} ->
-      NewValue = gb_trees:delete_any(Key, State),
-      _NewState = gb_trees:enter({Name, Origin}, NewValue, State);
+    {value, {single, KeyMap}} ->
+      NewKeyMap = gb_trees:delete_any(Key, KeyMap),
+      _NewState = gb_trees:enter({Name, Origin}, {single, NewKeyMap}, State);
     {value, {burst, _KeyMap, _OldKeyMap}} ->
       State; % operation not expected for burst values
     none ->
