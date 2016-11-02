@@ -31,7 +31,10 @@
 -include("statip_value.hrl").
 -include("statip_boot.hrl").
 
--define(LOG_FILE, "state.log").
+-define(LOG_FILE,              "state.log").
+-define(LOG_FILE_COMPACT_TEMP, "state.log.compact").
+-define(READ_BLOCK, 4096).
+-define(READ_RETRIES, 3).
 
 -record(state, {
   log_dir :: file:filename(),
@@ -120,21 +123,28 @@ init([] = _Args) ->
   % TODO: read byte size limit
   case logger_start_mode() of
     {boot, LogDir} ->
-      % TODO: replay the log, write fresh log file (opportunistic compaction),
-      % start the value keepers
-      case statip_flog:open(filename:join(LogDir, ?LOG_FILE), [write]) of
-        {ok, LogH} ->
+      case replay_logfile(LogDir) of
+        {ok, Entries} -> % may be []
+          ok = dump_logfile(Entries, LogDir),
+          ok = start_keepers(Entries),
+          % XXX: logfile should open cleanly, after both replay and dump,
+          % unless there was no logfile previously
+          LogFile = filename:join(LogDir, ?LOG_FILE),
+          {ok, LogH} = statip_flog:open(LogFile, [write]),
           set_booted_flag(),
           State = #state{
             log_dir = LogDir,
             log_handle = LogH
           },
           {ok, State};
+        %{error, bad_file = _Reason} ->
+        %{error, damaged_file = _Reason} ->
         {error, Reason} ->
-          {stop, {open, Reason}}
+          {stop, {replay, Reason}}
       end;
     {crash_recovery, LogDir} ->
-      case statip_flog:open(filename:join(LogDir, ?LOG_FILE), [write]) of
+      LogFile = filename:join(LogDir, ?LOG_FILE),
+      case statip_flog:open(LogFile, [write]) of
         {ok, LogH} ->
           State = #state{
             log_dir = LogDir,
@@ -142,7 +152,7 @@ init([] = _Args) ->
           },
           {ok, State};
         {error, Reason} ->
-          {stop, {open, Reason}}
+          {stop, {reopen, Reason}}
       end;
     no_logging ->
       State = #state{
@@ -242,6 +252,131 @@ handle_info(_Message, State) ->
 
 code_change(_OldVsn, State, _Extra) ->
   {ok, State}.
+
+%% }}}
+%%----------------------------------------------------------
+
+%%%---------------------------------------------------------------------------
+
+%% @doc Read the log file from specified directory.
+
+-spec replay_logfile(file:filename()) ->
+  {ok, statip_flog:records() | none} | {error, Reason}
+  when Reason :: bad_file | damaged_file | file:posix().
+
+replay_logfile(LogDir) ->
+  LogFile = filename:join(LogDir, ?LOG_FILE),
+  case statip_flog:open(LogFile, [read]) of
+    {ok, Handle} ->
+      case statip_flog:replay(Handle, ?READ_BLOCK, ?READ_RETRIES) of
+        {ok, Records} ->
+          statip_flog:close(Handle),
+          {ok, Records};
+        {error, Reason} ->
+          {error, Reason}
+      end;
+    {error, enoent} ->
+      {ok, none};
+    {error, Reason} ->
+      {error, Reason}
+  end.
+
+%% @doc Write a compacted version of the previously read log file.
+
+-spec dump_logfile(statip_flog:records() | none, file:filename()) ->
+  ok | {error, file:posix()}.
+
+dump_logfile(none = _Entries, _LogDir) ->
+  ok;
+dump_logfile(Entries, LogDir) ->
+  LogFile = filename:join(LogDir, ?LOG_FILE_COMPACT_TEMP),
+  _ = file:delete(LogFile),
+  case statip_flog:open(LogFile, [write]) of
+    {ok, Handle} ->
+      try statip_flog:fold(fun write_records/4, Handle, Entries) of
+        _ ->
+          ok = statip_flog:close(Handle),
+          file:rename(LogFile, filename:join(LogDir, ?LOG_FILE))
+      catch
+        throw:{error, Reason} ->
+          statip_flog:close(Handle),
+          {error, Reason}
+      end;
+    {error, Reason} ->
+      {error, Reason}
+  end.
+
+%%----------------------------------------------------------
+%% write replayed log entries to a log file {{{
+
+%% @doc Write records to an opened log file.
+%%
+%%   Function throws {@type @{error, file:posix() | badarg@}} ({@link
+%%   erlang:throw/1}) on error.
+%%
+%% @see statip_flog:fold/3
+
+-spec write_records({statip_value:name(), statip_value:origin()},
+                    single | burst, [#value{}], statip_flog:handle()) ->
+  statip_flog:handle() | no_return().
+
+write_records({ValueName, ValueOrigin} = _Key, Type, Records,
+              Handle = Acc) ->
+  case write_records(Handle, ValueName, ValueOrigin, Records, Type) of
+    ok -> Acc;
+    {error, Reason} -> throw({error, Reason})
+  end.
+
+%% @doc Workhorse for {@link write_records/4}.
+
+-spec write_records(statip_flog:handle(),
+                    statip_value:name(), statip_value:origin(),
+                    [#value{}], single | burst) ->
+  ok | {error, file:posix() | badarg}.
+
+write_records(_Handle, _Name, _Origin, [] = _Records, _Type) ->
+  ok;
+write_records(Handle, Name, Origin, [Record | Rest] = _Records, Type) ->
+  case statip_flog:append(Handle, Name, Origin, Record, Type) of
+    ok -> write_records(Handle, Name, Origin, Rest, Type);
+    {error, Reason} -> {error, Reason}
+  end.
+
+%% }}}
+%%----------------------------------------------------------
+
+%% @doc Start value keeper processes.
+%%
+%% @see statip_value_single
+%% @see statip_value_burst
+
+-spec start_keepers(statip_flog:records() | none) ->
+  ok.
+
+start_keepers(none = _Entries) ->
+  ok;
+start_keepers(Entries) ->
+  Acc = [],
+  statip_flog:fold(fun start_keeper/4, Acc, Entries),
+  ok.
+
+%%----------------------------------------------------------
+%% starting value keepers {{{
+
+%% @doc Start a single value keeper process with all the necessary records.
+%%
+%% @see statip_flog:fold/3
+
+-spec start_keeper({statip_value:name(), statip_value:origin()},
+                   single | burst, [#value{}], Acc) ->
+  NewAcc
+  when Acc :: any(), NewAcc :: any().
+
+start_keeper({_ValueName, _ValueOrigin} = _Key, single = _Type, _Records, Acc) ->
+  % TODO: implement starting the keeper processes
+  Acc;
+start_keeper({_ValueName, _ValueOrigin} = _Key, burst = _Type, _Records, Acc) ->
+  Acc.
 
 %% }}}
 %%----------------------------------------------------------
