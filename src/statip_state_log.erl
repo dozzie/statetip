@@ -156,19 +156,15 @@ init([] = _Args) ->
 %% @doc Clean up after event handler.
 
 terminate(_Arg, State) ->
-  terminate_close_logfile(State),
-  terminate_stop_compaction(State),
+  case State of
+    #state{log_handle = undefined} -> ok;
+    #state{log_handle = LogH} -> statip_flog:close(LogH)
+  end,
+  case State of
+    #state{compaction = undefined} -> ok;
+    #state{compaction = _} -> 'TODO'
+  end,
   ok.
-
-terminate_close_logfile(_State = #state{log_handle = undefined}) ->
-  ok;
-terminate_close_logfile(_State = #state{log_handle = LogH}) ->
-  statip_flog:close(LogH).
-
-terminate_stop_compaction(_State = #state{compaction = undefined}) ->
-  ok;
-terminate_stop_compaction(_State = #state{compaction = _}) ->
-  'TODO'.
 
 %% }}}
 %%----------------------------------------------------------
