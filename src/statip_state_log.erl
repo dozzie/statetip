@@ -11,7 +11,7 @@
 -behaviour(gen_server).
 
 %% public interface
--export([set/4, clear/3, clear/2]).
+-export([set/4, clear/3, clear/2, rotate/2]).
 -export([compact/0]).
 
 %% internal interface
@@ -69,6 +69,14 @@ clear(ValueName, ValueOrigin, Key) ->
 
 clear(ValueName, ValueOrigin) ->
   gen_server:call(?MODULE, {clear, ValueName, ValueOrigin}).
+
+%% @doc Append a "rotate" record for burst value.
+
+-spec rotate(statip_value:name(), statip_value:origin()) ->
+  ok | {error, term()}.
+
+rotate(ValueName, ValueOrigin) ->
+  gen_server:call(?MODULE, {rotate, ValueName, ValueOrigin}).
 
 %% @doc Start log compaction process outside of its schedule.
 
@@ -194,6 +202,15 @@ handle_call({clear, ValueName, ValueOrigin} = _Request, _From,
             State = #state{log_handle = LogH}) ->
   % TODO: log any write errors (e.g. "disk full")
   statip_flog:append(LogH, ValueName, ValueOrigin, clear, burst),
+  {reply, ok, State};
+
+handle_call({rotate, _ValueName, _ValueOrigin} = _Request, _From,
+            State = #state{log_handle = undefined}) ->
+  {reply, ok, State}; % ignore the entry
+handle_call({rotate, ValueName, ValueOrigin} = _Request, _From,
+            State = #state{log_handle = LogH}) ->
+  % TODO: log any write errors (e.g. "disk full")
+  statip_flog:append(LogH, ValueName, ValueOrigin, rotate, burst),
   {reply, ok, State};
 
 handle_call(compact = _Request, _From, State = #state{log_dir = undefined}) ->
