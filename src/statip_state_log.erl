@@ -372,10 +372,9 @@ start_keepers(Entries) ->
   NewAcc
   when Acc :: any(), NewAcc :: any().
 
-start_keeper({_ValueName, _ValueOrigin} = _Key, single = _Type, _Records, Acc) ->
-  % TODO: implement starting the keeper processes
-  Acc;
-start_keeper({_ValueName, _ValueOrigin} = _Key, burst = _Type, _Records, Acc) ->
+start_keeper({ValueName, ValueOrigin} = _Key, Type, Records, Acc)
+when Type == single; Type == burst ->
+  ok = statip_value:restore(ValueName, ValueOrigin, Records, Type),
   Acc.
 
 %% }}}
