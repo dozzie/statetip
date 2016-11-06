@@ -114,11 +114,11 @@ handle_info({tcp, Socket, Line} = _Request,
       statip_value:add(Name, Origin, Record, Type),
       inet:setopts(Socket, [{active, once}]),
       {noreply, State};
-    {error, not_json} ->
+    {error, bad_format} ->
       % ignore content errors
       inet:setopts(Socket, [{active, once}]),
       {noreply, State};
-    {error, bad_format} ->
+    {error, not_json} ->
       % stop when non-JSON
       % TODO: log this event
       {stop, normal, State}
