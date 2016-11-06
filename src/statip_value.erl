@@ -19,7 +19,7 @@
 %% general-purpose interface
 -export([timestamp/0]).
 %% data access interface
--export([add/4]).
+-export([add/4, restore/4]).
 -export([list_names/0, list_origins/1]).
 -export([list_keys/2, list_records/2, get_record/3]).
 
@@ -69,6 +69,9 @@
 -callback spawn_keeper(ValueName :: name(), ValueOrigin :: origin()) ->
   {ok, pid()} | ignore | {error, term()}.
 
+-callback restore(Pid :: pid(), Records :: [#value{}]) ->
+  ok.
+
 -callback add(Pid :: pid(), Record :: #value{}) ->
   ok.
 
@@ -84,6 +87,17 @@
 %%%---------------------------------------------------------------------------
 %%% data access interface
 %%%---------------------------------------------------------------------------
+
+%% @doc Restore a value keeper process after application reboot.
+
+-spec restore(name(), origin(), [#value{}], burst | single) ->
+  ok | {error, exists}.
+
+restore(ValueName, ValueOrigin, Records, ValueType) ->
+  case start_keeper(ValueName, ValueOrigin, ValueType) of
+    {Pid, Module} -> Module:restore(Pid, Records);
+    none -> {error, exists}
+  end.
 
 %% @doc Remember a value in appropriate keeper.
 %%   If a value's type (single or burst) mismatches what is already

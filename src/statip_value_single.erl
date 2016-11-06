@@ -12,7 +12,8 @@
 -behaviour(statip_value).
 
 %% public interface
--export([spawn_keeper/2, add/2, list_keys/1, list_records/1, get_record/2]).
+-export([spawn_keeper/2, add/2, restore/2]).
+-export([list_keys/1, list_records/1, get_record/2]).
 
 %% supervision tree API
 -export([start/2, start_link/2]).
@@ -62,6 +63,17 @@ start_link(ValueName, ValueOrigin) ->
 
 spawn_keeper(ValueName, ValueOrigin) ->
   statip_value_single_sup:spawn_keeper(ValueName, ValueOrigin).
+
+%% @doc Restore all the records in a value registry.
+%%
+%%   Unlike with {@link add/2}, value keeper doesn't send an update to {@link
+%%   statip_state_log}.
+
+-spec restore(pid(), [#value{}]) ->
+  ok.
+
+restore(Pid, Records) ->
+  gen_server:call(Pid, {restore, Records}).
 
 %% @doc Add/update record to a value registry.
 
@@ -131,6 +143,9 @@ terminate(_Arg, _State) ->
 
 %% @private
 %% @doc Handle {@link gen_server:call/2}.
+
+handle_call({restore, Records} = _Request, _From, State = #state{}) ->
+  {reply, 'TODO', State, 1000};
 
 handle_call(list_keys = _Request, _From, State = #state{entries = Entries}) ->
   Result = get_record_keys(Entries),
