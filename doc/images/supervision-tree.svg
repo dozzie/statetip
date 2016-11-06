@@ -23,7 +23,6 @@
 
   statip_value_sup -&gt; statip_value_single_sup;
   statip_value_sup -&gt; statip_value_burst_sup;
-  //statip_value_sup -&gt; statip_value_loader;
   statip_value_single_sup -&gt; statip_value_single;
   statip_value_burst_sup  -&gt; statip_value_burst;
 
@@ -110,13 +109,13 @@
   <path d="M 138 80 L 138 112" fill="none" stroke="rgb(0,0,0)" />
   <polygon fill="rgb(0,0,0)" points="138,119 134,112 142,112 138,119" stroke="rgb(0,0,0)" />
   <path d="M 138 80 L 138 100" fill="none" stroke="rgb(0,0,0)" />
-  <path d="M 138 100 L 986 100" fill="none" stroke="rgb(0,0,0)" />
-  <path d="M 986 100 L 986 112" fill="none" stroke="rgb(0,0,0)" />
-  <polygon fill="rgb(0,0,0)" points="986,119 982,112 990,112 986,119" stroke="rgb(0,0,0)" />
-  <path d="M 138 80 L 138 100" fill="none" stroke="rgb(0,0,0)" />
   <path d="M 138 100 L 1410 100" fill="none" stroke="rgb(0,0,0)" />
   <path d="M 1410 100 L 1410 112" fill="none" stroke="rgb(0,0,0)" />
   <polygon fill="rgb(0,0,0)" points="1410,119 1406,112 1414,112 1410,119" stroke="rgb(0,0,0)" />
+  <path d="M 138 80 L 138 100" fill="none" stroke="rgb(0,0,0)" />
+  <path d="M 138 100 L 986 100" fill="none" stroke="rgb(0,0,0)" />
+  <path d="M 986 100 L 986 112" fill="none" stroke="rgb(0,0,0)" />
+  <polygon fill="rgb(0,0,0)" points="986,119 982,112 990,112 986,119" stroke="rgb(0,0,0)" />
   <path d="M 138 80 L 138 100" fill="none" stroke="rgb(0,0,0)" />
   <path d="M 138 100 L 774 100" fill="none" stroke="rgb(0,0,0)" />
   <path d="M 774 100 L 774 112" fill="none" stroke="rgb(0,0,0)" />

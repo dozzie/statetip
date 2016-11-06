@@ -14,7 +14,6 @@ blockdiag {
 
   statip_value_sup -> statip_value_single_sup;
   statip_value_sup -> statip_value_burst_sup;
-  //statip_value_sup -> statip_value_loader;
   statip_value_single_sup -> statip_value_single;
   statip_value_burst_sup  -> statip_value_burst;
 

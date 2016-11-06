@@ -41,9 +41,6 @@ init([] = _Args) ->
     {statip_value_burst_sup,
       {statip_value_burst_sup, start_link, []},
       permanent, 5000, supervisor, [statip_value_burst_sup]}
-    %{statip_value_loader,
-    %  {statip_value_loader, start_link, []},
-    %  transient, 5000, worker, [statip_value_loader]}
   ],
   {ok, {Strategy, Children}}.
 
