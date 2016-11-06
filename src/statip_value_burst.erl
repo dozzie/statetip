@@ -42,13 +42,13 @@
 %%%---------------------------------------------------------------------------
 
 %% @private
-%% @doc Start example process.
+%% @doc Start value keeper process.
 
 start(ValueName, ValueOrigin) ->
   gen_server:start(?MODULE, [ValueName, ValueOrigin], []).
 
 %% @private
-%% @doc Start example process.
+%% @doc Start value keeper process.
 
 start_link(ValueName, ValueOrigin) ->
   gen_server:start_link(?MODULE, [ValueName, ValueOrigin], []).
@@ -116,7 +116,7 @@ get_record(Pid, Key) ->
 %% initialization/termination {{{
 
 %% @private
-%% @doc Initialize event handler.
+%% @doc Initialize {@link gen_server} state.
 
 init([ValueName, ValueOrigin] = _Args) ->
   case statip_registry:add(ValueName, ValueOrigin, self(), ?MODULE) of
@@ -134,7 +134,7 @@ init([ValueName, ValueOrigin] = _Args) ->
   end.
 
 %% @private
-%% @doc Clean up after event handler.
+%% @doc Clean up {@link gen_server} state.
 
 terminate(_Arg, _State) ->
   ok.

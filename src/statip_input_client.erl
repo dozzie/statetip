@@ -53,13 +53,13 @@ take_over(Socket) ->
 %%%---------------------------------------------------------------------------
 
 %% @private
-%% @doc Start example process.
+%% @doc Start connection handler process.
 
 start(Socket) ->
   gen_server:start(?MODULE, [Socket], []).
 
 %% @private
-%% @doc Start example process.
+%% @doc Start connection handler process.
 
 start_link(Socket) ->
   gen_server:start_link(?MODULE, [Socket], []).
@@ -72,14 +72,14 @@ start_link(Socket) ->
 %% initialization/termination {{{
 
 %% @private
-%% @doc Initialize event handler.
+%% @doc Initialize {@link gen_server} state.
 
 init([Socket] = _Args) ->
   State = #state{socket = Socket},
   {ok, State}.
 
 %% @private
-%% @doc Clean up after event handler.
+%% @doc Clean up {@link gen_server} state.
 
 terminate(_Arg, _State = #state{socket = Socket}) ->
   gen_tcp:close(Socket),

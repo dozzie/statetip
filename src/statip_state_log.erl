@@ -98,13 +98,13 @@ compact() ->
 %%%---------------------------------------------------------------------------
 
 %% @private
-%% @doc Start example process.
+%% @doc Start state logger process.
 
 start() ->
   gen_server:start({local, ?MODULE}, ?MODULE, [], []).
 
 %% @private
-%% @doc Start example process.
+%% @doc Start state logger process.
 
 start_link() ->
   gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
@@ -117,7 +117,7 @@ start_link() ->
 %% initialization/termination {{{
 
 %% @private
-%% @doc Initialize event handler.
+%% @doc Initialize {@link gen_server} state.
 
 init([] = _Args) ->
   % TODO: read byte size limit
@@ -163,7 +163,7 @@ init([] = _Args) ->
   end.
 
 %% @private
-%% @doc Clean up after event handler.
+%% @doc Clean up {@link gen_server} state.
 
 terminate(_Arg, State) ->
   case State of

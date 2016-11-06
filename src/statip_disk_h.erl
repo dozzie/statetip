@@ -48,7 +48,7 @@
 %% initialization/termination {{{
 
 %% @private
-%% @doc Initialize event handler.
+%% @doc Initialize {@link gen_server} state.
 
 init([File] = _Args) ->
   case file:open(File, [append, raw, delayed_write]) of
@@ -63,7 +63,7 @@ init([File] = _Args) ->
   end.
 
 %% @private
-%% @doc Clean up after event handler.
+%% @doc Clean up {@link gen_server} state.
 
 terminate(_Arg, _State = #state{handle = Handle}) ->
   file:close(Handle),

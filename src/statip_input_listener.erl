@@ -50,7 +50,7 @@ start_link() ->
 %% initialization/termination {{{
 
 %% @private
-%% @doc Initialize event handler.
+%% @doc Initialize {@link gen_server} state.
 
 init(_Args) ->
   {ok, {Addr, Port}} = application:get_env(statip, input),
@@ -72,7 +72,7 @@ init(_Args) ->
   end.
 
 %% @private
-%% @doc Clean up after event handler.
+%% @doc Clean up {@link gen_server} state.
 
 terminate(_Arg, _State = #state{socket = Socket}) ->
   gen_tcp:close(Socket),
