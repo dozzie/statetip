@@ -201,14 +201,15 @@ extract_record(Struct, DefaultExpiry) ->
 -spec fill_defaults(#meta{}, #value{}, statip_value:expiry()) ->
   #value{}.
 
-fill_defaults(Meta = #meta{created = undefined}, Record, DefaultExpiry) ->
-  NewMeta = Meta#meta{created = statip_value:timestamp()},
-  fill_defaults(NewMeta, Record, DefaultExpiry);
-fill_defaults(Meta = #meta{expiry = undefined}, Record, DefaultExpiry) ->
-  NewMeta = Meta#meta{expiry = DefaultExpiry},
-  fill_defaults(NewMeta, Record, DefaultExpiry);
-fill_defaults(_Meta = #meta{created = Created, expiry = Expiry}, Record,
-              _DefaultExpiry) ->
+fill_defaults(Meta, Record, DefaultExpiry) ->
+  case Meta of
+    #meta{created = undefined} -> Created = statip_value:timestamp();
+    #meta{created = Created} -> ok
+  end,
+  case Meta of
+    #meta{expiry = undefined} -> Expiry = DefaultExpiry;
+    #meta{expiry = Expiry} -> ok
+  end,
   case Record of
     #value{sort_key = undefined, key = SortKey} -> ok;
     #value{sort_key = SortKey} -> ok
