@@ -5,9 +5,10 @@ blockdiag {
   node_width = 148;
   //span_width = 40;
 
-  statip_sup -> statip_log;
+  //statip_sup -> statip_log;
   statip_sup -> statip_registry;
   statip_sup -> statip_value_sup;
+  statip_sup -> statip_state_log;
   statip_sup -> statip_input_sup;
   statip_sup -> statip_http_sup;
 
