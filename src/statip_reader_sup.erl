@@ -1,29 +1,19 @@
 %%%---------------------------------------------------------------------------
 %%% @private
 %%% @doc
-%%%   HTTP client handlers supervisor.
+%%%   Reader clients subsystem supervisor.
 %%% @end
 %%%---------------------------------------------------------------------------
 
--module(statip_http_client_sup).
+-module(statip_reader_sup).
 
 -behaviour(supervisor).
-
-%% public interface
--export([spawn_worker/1]).
 
 %% supervision tree API
 -export([start_link/0]).
 
 %% supervisor callbacks
 -export([init/1]).
-
-%%%---------------------------------------------------------------------------
-%%% public interface
-%%%---------------------------------------------------------------------------
-
-spawn_worker(Socket) ->
-  supervisor:start_child(?MODULE, [Socket]).
 
 %%%---------------------------------------------------------------------------
 %%% supervision tree API
@@ -43,11 +33,14 @@ start_link() ->
 %% @doc Initialize supervisor.
 
 init([] = _Args) ->
-  Strategy = {simple_one_for_one, 5, 10},
+  Strategy = {one_for_one, 5, 10},
   Children = [
-    {statip_http_client,
-      {statip_http_client, start_link, []},
-      temporary, 5000, worker, [statip_http_client]}
+    {statip_reader_client_sup,
+      {statip_reader_client_sup, start_link, []},
+      permanent, 5000, supervisor, [statip_reader_client_sup]},
+    {statip_reader_listen,
+      {statip_reader_listen, start_link, []},
+      permanent, 5000, worker, [statip_reader_listen]}
   ],
   {ok, {Strategy, Children}}.
 

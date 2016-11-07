@@ -1,11 +1,11 @@
 %%%---------------------------------------------------------------------------
 %%% @private
 %%% @doc
-%%%   Single value (non-burst) keeper processes supervisor.
+%%%   Keepers supervisor for unrelated values.
 %%% @end
 %%%---------------------------------------------------------------------------
 
--module(statip_value_single_sup).
+-module(statip_keeper_unrelated_sup).
 
 -behaviour(supervisor).
 
@@ -32,8 +32,8 @@ start_link() ->
 %%% public interface
 %%%---------------------------------------------------------------------------
 
-spawn_keeper(ValueName, ValueOrigin) ->
-  supervisor:start_child(?MODULE, [ValueName, ValueOrigin]).
+spawn_keeper(GroupName, GroupOrigin) ->
+  supervisor:start_child(?MODULE, [GroupName, GroupOrigin]).
 
 %%%---------------------------------------------------------------------------
 %%% supervisor callbacks
@@ -45,9 +45,9 @@ spawn_keeper(ValueName, ValueOrigin) ->
 init([] = _Args) ->
   Strategy = {simple_one_for_one, 5, 10},
   Children = [
-    {statip_value_single,
-      {statip_value_single, start_link, []},
-      transient, 5000, worker, [statip_value_single]}
+    {statip_keeper_unrelated,
+      {statip_keeper_unrelated, start_link, []},
+      transient, 5000, worker, [statip_keeper_unrelated]}
   ],
   {ok, {Strategy, Children}}.
 

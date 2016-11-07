@@ -7,28 +7,28 @@ blockdiag {
 
   //statip_sup -> statip_log;
   statip_sup -> statip_registry;
-  statip_sup -> statip_value_sup;
+  statip_sup -> statip_keeper_sup;
   statip_sup -> statip_state_log;
-  statip_sup -> statip_input_sup;
-  statip_sup -> statip_http_sup;
+  statip_sup -> statip_sender_sup;
+  statip_sup -> statip_reader_sup;
 
-  statip_value_sup -> statip_value_single_sup;
-  statip_value_sup -> statip_value_burst_sup;
-  statip_value_single_sup -> statip_value_single;
-  statip_value_burst_sup  -> statip_value_burst;
+  statip_keeper_sup -> statip_keeper_unrelated_sup;
+  statip_keeper_sup -> statip_keeper_related_sup;
+  statip_keeper_unrelated_sup -> statip_keeper_unrelated;
+  statip_keeper_related_sup   -> statip_keeper_related;
 
-  statip_input_sup -> statip_input_client_sup;
-  statip_input_sup -> statip_input_listener;
-  statip_input_client_sup -> statip_input_client;
+  statip_sender_sup -> statip_sender_client_sup;
+  statip_sender_sup -> statip_sender_listen;
+  statip_sender_client_sup -> statip_sender_client;
 
-  statip_http_sup -> statip_http_client_sup;
-  statip_http_sup -> statip_http_listener;
-  statip_http_client_sup -> statip_http_client;
+  statip_reader_sup -> statip_reader_client_sup;
+  statip_reader_sup -> statip_reader_listen;
+  statip_reader_client_sup -> statip_reader_client;
 
-  statip_value_single [stacked];
-  statip_value_burst  [stacked];
-  statip_input_client [stacked];
-  statip_http_client  [stacked];
+  statip_keeper_unrelated [stacked];
+  statip_keeper_related   [stacked];
+  statip_sender_client [stacked];
+  statip_reader_client [stacked];
 }
 
 // vim:ft=dot

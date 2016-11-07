@@ -1,13 +1,13 @@
 %%%---------------------------------------------------------------------------
 %%%
-%%% Common record for `statip_value_*' modules.
+%%% Common record defining a value.
 %%%
 %%%---------------------------------------------------------------------------
 
 -record(value, {
   key :: statip_value:key(),
   sort_key = undefined :: statip_value:key() | undefined,
-  value    = undefined :: statip_value:value(),
+  state    = undefined :: statip_value:state(),
   severity = expected  :: statip_value:severity(),
   info     = null      :: statip_value:info(),
   created :: statip_value:timestamp(),

@@ -1,22 +1,29 @@
 %%%---------------------------------------------------------------------------
 %%% @private
 %%% @doc
-%%%   Burst value keeper processes supervisor.
+%%%   Sender client handlers supervisor.
 %%% @end
 %%%---------------------------------------------------------------------------
 
--module(statip_value_burst_sup).
+-module(statip_sender_client_sup).
 
 -behaviour(supervisor).
 
 %% public interface
--export([spawn_keeper/2]).
+-export([spawn_worker/1]).
 
 %% supervision tree API
 -export([start_link/0]).
 
 %% supervisor callbacks
 -export([init/1]).
+
+%%%---------------------------------------------------------------------------
+%%% public interface
+%%%---------------------------------------------------------------------------
+
+spawn_worker(Socket) ->
+  supervisor:start_child(?MODULE, [Socket]).
 
 %%%---------------------------------------------------------------------------
 %%% supervision tree API
@@ -29,13 +36,6 @@ start_link() ->
   supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
 %%%---------------------------------------------------------------------------
-%%% public interface
-%%%---------------------------------------------------------------------------
-
-spawn_keeper(ValueName, ValueOrigin) ->
-  supervisor:start_child(?MODULE, [ValueName, ValueOrigin]).
-
-%%%---------------------------------------------------------------------------
 %%% supervisor callbacks
 %%%---------------------------------------------------------------------------
 
@@ -45,9 +45,9 @@ spawn_keeper(ValueName, ValueOrigin) ->
 init([] = _Args) ->
   Strategy = {simple_one_for_one, 5, 10},
   Children = [
-    {statip_value_burst,
-      {statip_value_burst, start_link, []},
-      transient, 5000, worker, [statip_value_burst]}
+    {statip_sender_client,
+      {statip_sender_client, start_link, []},
+      temporary, 5000, worker, [statip_sender_client]}
   ],
   {ok, {Strategy, Children}}.
 

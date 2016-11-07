@@ -187,12 +187,12 @@ append_too_long(Handle) ->
   Name   = binary:copy(<<"example_name_">>,   ?READ_BLOCK div 40),
   Origin = binary:copy(<<"example_origin_">>, ?READ_BLOCK div 40),
   Key    = binary:copy(<<"example_key_">>,    ?READ_BLOCK div 40),
-  Value  = binary:copy(<<"example_value_">>,  ?READ_BLOCK div 40),
-  ok = statip_flog:append(Handle, Name, Origin, record(Key, Value), single).
+  State  = binary:copy(<<"example_state_">>,  ?READ_BLOCK div 40),
+  ok = statip_flog:append(Handle, Name, Origin, record(Key, State), unrelated).
 
 append_good(Handle) ->
   ok = statip_flog:append(Handle, <<"example_name">>, <<"example_origin">>,
-                          record("example_key", "example_value"), single).
+                          record("example_key", "example_state"), unrelated).
 
 %% }}}
 %%----------------------------------------------------------------------------
@@ -203,16 +203,16 @@ append_good(Handle) ->
 timestamp() ->
   1234567890.
 
-record(Key, Value) when is_list(Key) ->
-  record(list_to_binary(Key), Value);
-record(Key, Value) when is_list(Value) ->
-  record(Key, list_to_binary(Value));
-record(Key, Value)
-when is_binary(Key), is_binary(Value);
-     is_binary(Key), Value == undefined ->
+record(Key, State) when is_list(Key) ->
+  record(list_to_binary(Key), State);
+record(Key, State) when is_list(State) ->
+  record(Key, list_to_binary(State));
+record(Key, State)
+when is_binary(Key), is_binary(State);
+     is_binary(Key), State == undefined ->
   #value{
     key = Key,
-    value = Value,
+    state = State,
     created = timestamp(),
     expires = timestamp() + 30
   }.

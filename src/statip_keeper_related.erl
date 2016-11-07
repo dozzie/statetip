@@ -1,19 +1,19 @@
 %%%---------------------------------------------------------------------------
 %%% @doc
-%%%   Burst value keeper process.
+%%%   Value group keeper process for related values.
 %%%
-%%% @todo update disk state that fills things after restart
+%%% @todo send internal state updates to state logger
 %%% @end
 %%%---------------------------------------------------------------------------
 
--module(statip_value_burst).
+-module(statip_keeper_related).
 
 -behaviour(gen_server).
--behaviour(statip_value).
+-behaviour(statip_keeper).
 
 %% public interface
 -export([spawn_keeper/2, restore/2, add/2]).
--export([list_keys/1, list_records/1, get_record/2]).
+-export([list_keys/1, list_values/1, get_value/2]).
 
 %% supervision tree API
 -export([start/2, start_link/2]).
@@ -29,8 +29,8 @@
 -include("statip_value.hrl").
 
 -record(state, {
-  value_name :: statip_value:name(),
-  value_origin :: statip_value:origin(),
+  group_name :: statip_value:name(),
+  group_origin :: statip_value:origin(),
   current_entries  :: gb_tree(), % statip_value:key() -> #value{}
   previous_entries :: gb_tree(), % statip_value:key() -> #value{}
   expires :: statip_value:timestamp()
@@ -42,16 +42,16 @@
 %%%---------------------------------------------------------------------------
 
 %% @private
-%% @doc Start value keeper process.
+%% @doc Start keeper process.
 
-start(ValueName, ValueOrigin) ->
-  gen_server:start(?MODULE, [ValueName, ValueOrigin], []).
+start(GroupName, GroupOrigin) ->
+  gen_server:start(?MODULE, [GroupName, GroupOrigin], []).
 
 %% @private
-%% @doc Start value keeper process.
+%% @doc Start keeper process.
 
-start_link(ValueName, ValueOrigin) ->
-  gen_server:start_link(?MODULE, [ValueName, ValueOrigin], []).
+start_link(GroupName, GroupOrigin) ->
+  gen_server:start_link(?MODULE, [GroupName, GroupOrigin], []).
 
 %%%---------------------------------------------------------------------------
 %%% public interface
@@ -62,29 +62,29 @@ start_link(ValueName, ValueOrigin) ->
 -spec spawn_keeper(statip_value:name(), statip_value:origin()) ->
   {ok, pid()} | ignore.
 
-spawn_keeper(ValueName, ValueOrigin) ->
-  statip_value_burst_sup:spawn_keeper(ValueName, ValueOrigin).
+spawn_keeper(GroupName, GroupOrigin) ->
+  statip_keeper_related_sup:spawn_keeper(GroupName, GroupOrigin).
 
-%% @doc Restore all the records in a value registry.
+%% @doc Restore values remembered by value group keeper.
 %%
-%%   Unlike with {@link add/2}, value keeper doesn't send an update to {@link
+%%   Unlike {@link add/2}, keeper doesn't send an update to {@link
 %%   statip_state_log}.
 
 -spec restore(pid(), [#value{}]) ->
   ok.
 
-restore(Pid, Records) ->
-  gen_server:call(Pid, {restore, Records}).
+restore(Pid, Values) ->
+  gen_server:call(Pid, {restore, Values}).
 
-%% @doc Add/update record to a value registry.
+%% @doc Add a new value or update remembered one by the keeper.
 
 -spec add(pid(), #value{}) ->
   ok.
 
-add(Pid, Record = #value{}) ->
-  gen_server:cast(Pid, {add, Record}).
+add(Pid, Value = #value{}) ->
+  gen_server:cast(Pid, {add, Value}).
 
-%% @doc List all keys from value registry.
+%% @doc List keys of all values remembered by the keeper.
 
 -spec list_keys(pid()) ->
   [statip_value:key()].
@@ -92,21 +92,21 @@ add(Pid, Record = #value{}) ->
 list_keys(Pid) ->
   gen_server:call(Pid, list_keys).
 
-%% @doc Retrieve all records from value registry.
+%% @doc Retrieve all values remembered by the keeper.
 
--spec list_records(pid()) ->
+-spec list_values(pid()) ->
   [#value{}].
 
-list_records(Pid) ->
-  gen_server:call(Pid, list_records).
+list_values(Pid) ->
+  gen_server:call(Pid, list_values).
 
-%% @doc Get a record for a specific key.
+%% @doc Get a specific value from keeper.
 
--spec get_record(pid(), statip_value:key()) ->
+-spec get_value(pid(), statip_value:key()) ->
   #value{} | none.
 
-get_record(Pid, Key) ->
-  gen_server:call(Pid, {get_record, Key}).
+get_value(Pid, Key) ->
+  gen_server:call(Pid, {get_value, Key}).
 
 %%%---------------------------------------------------------------------------
 %%% gen_server callbacks
@@ -118,12 +118,12 @@ get_record(Pid, Key) ->
 %% @private
 %% @doc Initialize {@link gen_server} state.
 
-init([ValueName, ValueOrigin] = _Args) ->
-  case statip_registry:add(ValueName, ValueOrigin, self(), ?MODULE) of
+init([GroupName, GroupOrigin] = _Args) ->
+  case statip_registry:add(GroupName, GroupOrigin, self(), ?MODULE) of
     ok ->
       State = #state{
-        value_name = ValueName,
-        value_origin = ValueOrigin,
+        group_name = GroupName,
+        group_origin = GroupOrigin,
         current_entries  = gb_trees:empty(),
         previous_entries = gb_trees:empty(),
         expires = undefined
@@ -146,25 +146,25 @@ terminate(_Arg, _State) ->
 %% @private
 %% @doc Handle {@link gen_server:call/2}.
 
-handle_call({restore, Records} = _Request, _From, State = #state{}) ->
+handle_call({restore, Values} = _Request, _From, State = #state{}) ->
   {reply, 'TODO', State, 1000};
 
 handle_call(list_keys = _Request, _From,
             State = #state{current_entries = CurEntries,
                            previous_entries = OldEntries}) ->
-  Result = get_record_keys(CurEntries, OldEntries),
+  Result = get_value_keys(CurEntries, OldEntries),
   {reply, Result, State, 1000};
 
-handle_call(list_records = _Request, _From,
+handle_call(list_values = _Request, _From,
             State = #state{current_entries = CurEntries,
                            previous_entries = OldEntries}) ->
-  Result = get_all_records(CurEntries, OldEntries),
+  Result = get_all_values(CurEntries, OldEntries),
   {reply, Result, State, 1000};
 
-handle_call({get_record, Key} = _Request, _From,
+handle_call({get_value, Key} = _Request, _From,
             State = #state{current_entries = CurEntries,
                            previous_entries = OldEntries}) ->
-  Result = get_record(Key, CurEntries, OldEntries),
+  Result = get_value(Key, CurEntries, OldEntries),
   {reply, Result, State, 1000};
 
 %% unknown calls
@@ -174,8 +174,8 @@ handle_call(_Request, _From, State) ->
 %% @private
 %% @doc Handle {@link gen_server:cast/2}.
 
-handle_cast({add, Record = #value{}} = _Request, State) ->
-  NewState = add_record(Record, State),
+handle_cast({add, Value = #value{}} = _Request, State) ->
+  NewState = add_value(Value, State),
   {noreply, NewState, 1000};
 
 %% unknown casts
@@ -212,21 +212,21 @@ code_change(_OldVsn, State, _Extra) ->
 
 %%%---------------------------------------------------------------------------
 
-add_record(Record = #value{key = Key, expires = NewExpiryTime},
-           State = #state{current_entries = Entries, expires = ExpiryTime}) ->
+add_value(Value = #value{key = Key, expires = NewExpiryTime},
+          State = #state{current_entries = Entries, expires = ExpiryTime}) ->
   case gb_trees:is_defined(Key, Entries) of
     true ->
       % key that occurred in last burst, so it's a new burst apparently;
-      % rotate and take the new record's expiry time
+      % rotate and take the new value's expiry time
       _NewState = State#state{
         previous_entries = Entries,
-        current_entries = gb_trees:insert(Key, Record, gb_trees:empty()),
+        current_entries = gb_trees:insert(Key, Value, gb_trees:empty()),
         expires = NewExpiryTime
       };
     false ->
       % a yet-unknown key, so it's probably the same burst as the last one
       NewState = State#state{
-        current_entries = gb_trees:insert(Key, Record, Entries)
+        current_entries = gb_trees:insert(Key, Value, Entries)
       },
       % keep the expiry time that is later from the two (`undefined' is always
       % the earlier one)
@@ -240,38 +240,38 @@ add_record(Record = #value{key = Key, expires = NewExpiryTime},
       end
   end.
 
-get_record(Key, CurEntries, OldEntries) ->
+get_value(Key, CurEntries, OldEntries) ->
   case gb_trees:lookup(Key, CurEntries) of
-    {value, Record} ->
-      Record;
+    {value, Value} ->
+      Value;
     none ->
       case gb_trees:lookup(Key, OldEntries) of
-        {value, Record} -> Record;
+        {value, Value} -> Value;
         none -> none
       end
   end.
 
-get_all_records(CurEntries, OldEntries) ->
-  CurRecords = gb_trees:values(CurEntries),
-  All = records_walk(CurEntries, CurRecords, gb_trees:iterator(OldEntries)),
+get_all_values(CurEntries, OldEntries) ->
+  CurValues = gb_trees:values(CurEntries),
+  All = tree_walk(CurEntries, CurValues, gb_trees:iterator(OldEntries)),
   lists:keysort(#value.sort_key, All).
 
-records_walk(SkipMap, Acc, Iterator) ->
+tree_walk(SkipMap, Acc, Iterator) ->
   case gb_trees:next(Iterator) of
-    {Key, Record, NewIterator} ->
+    {Key, Value, NewIterator} ->
       case gb_trees:is_defined(Key, SkipMap) of
-        true  -> records_walk(SkipMap, Acc,            NewIterator);
-        false -> records_walk(SkipMap, [Record | Acc], NewIterator)
+        true  -> tree_walk(SkipMap, Acc,            NewIterator);
+        false -> tree_walk(SkipMap, [Value | Acc], NewIterator)
       end;
     none ->
       Acc
   end.
 
-get_record_keys(CurEntries, OldEntries) ->
+get_value_keys(CurEntries, OldEntries) ->
   % `gb_trees:keys()' returns the entries ordered by `key' field, and we need
-  % `sort_key' field order; `get_all_records()' does that, so let's just
+  % `sort_key' field order; `get_all_values()' does that, so let's just
   % extract the appropriate field from that list
-  [Key || #value{key = Key} <- get_all_records(CurEntries, OldEntries)].
+  [Key || #value{key = Key} <- get_all_values(CurEntries, OldEntries)].
 
 %%%---------------------------------------------------------------------------
 %%% vim:ft=erlang:foldmethod=marker

@@ -1,13 +1,16 @@
 %%%---------------------------------------------------------------------------
 %%% @private
 %%% @doc
-%%%   HTTP subsystem supervisor.
+%%%   Keepers supervisor for related values.
 %%% @end
 %%%---------------------------------------------------------------------------
 
--module(statip_http_sup).
+-module(statip_keeper_related_sup).
 
 -behaviour(supervisor).
+
+%% public interface
+-export([spawn_keeper/2]).
 
 %% supervision tree API
 -export([start_link/0]).
@@ -26,6 +29,13 @@ start_link() ->
   supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
 %%%---------------------------------------------------------------------------
+%%% public interface
+%%%---------------------------------------------------------------------------
+
+spawn_keeper(GroupName, GroupOrigin) ->
+  supervisor:start_child(?MODULE, [GroupName, GroupOrigin]).
+
+%%%---------------------------------------------------------------------------
 %%% supervisor callbacks
 %%%---------------------------------------------------------------------------
 
@@ -33,14 +43,11 @@ start_link() ->
 %% @doc Initialize supervisor.
 
 init([] = _Args) ->
-  Strategy = {one_for_one, 5, 10},
+  Strategy = {simple_one_for_one, 5, 10},
   Children = [
-    {statip_http_client_sup,
-      {statip_http_client_sup, start_link, []},
-      permanent, 5000, supervisor, [statip_http_client_sup]},
-    {statip_http_listener,
-      {statip_http_listener, start_link, []},
-      permanent, 5000, worker, [statip_http_listener]}
+    {statip_keeper_related,
+      {statip_keeper_related, start_link, []},
+      transient, 5000, worker, [statip_keeper_related]}
   ],
   {ok, {Strategy, Children}}.
 

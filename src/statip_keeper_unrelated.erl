@@ -1,19 +1,19 @@
 %%%---------------------------------------------------------------------------
 %%% @doc
-%%%   Single (non-burst) value keeper process.
+%%%   Value group keeper process for unrelated values.
 %%%
-%%% @todo update disk state that fills things after restart
+%%% @todo send internal state updates to state logger
 %%% @end
 %%%---------------------------------------------------------------------------
 
--module(statip_value_single).
+-module(statip_keeper_unrelated).
 
 -behaviour(gen_server).
--behaviour(statip_value).
+-behaviour(statip_keeper).
 
 %% public interface
 -export([spawn_keeper/2, add/2, restore/2]).
--export([list_keys/1, list_records/1, get_record/2]).
+-export([list_keys/1, list_values/1, get_value/2]).
 
 %% supervision tree API
 -export([start/2, start_link/2]).
@@ -29,10 +29,10 @@
 -include("statip_value.hrl").
 
 -record(state, {
-  value_name :: statip_value:name(),
-  value_origin :: statip_value:origin(),
+  group_name :: statip_value:name(),
+  group_origin :: statip_value:origin(),
   entries :: gb_tree(), % statip_value:key() -> #value{}
-  expiry :: statip_pqueue:pqueue() % {RecordExpiryTime, RecordKey}
+  expiry :: statip_pqueue:pqueue() % {ValueExpiryTime, ValueKey}
 }).
 
 %%% }}}
@@ -43,14 +43,14 @@
 %% @private
 %% @doc Start value keeper process.
 
-start(ValueName, ValueOrigin) ->
-  gen_server:start(?MODULE, [ValueName, ValueOrigin], []).
+start(GroupName, GroupOrigin) ->
+  gen_server:start(?MODULE, [GroupName, GroupOrigin], []).
 
 %% @private
 %% @doc Start value keeper process.
 
-start_link(ValueName, ValueOrigin) ->
-  gen_server:start_link(?MODULE, [ValueName, ValueOrigin], []).
+start_link(GroupName, GroupOrigin) ->
+  gen_server:start_link(?MODULE, [GroupName, GroupOrigin], []).
 
 %%%---------------------------------------------------------------------------
 %%% public interface
@@ -61,29 +61,29 @@ start_link(ValueName, ValueOrigin) ->
 -spec spawn_keeper(statip_value:name(), statip_value:origin()) ->
   {ok, pid()} | ignore.
 
-spawn_keeper(ValueName, ValueOrigin) ->
-  statip_value_single_sup:spawn_keeper(ValueName, ValueOrigin).
+spawn_keeper(GroupName, GroupOrigin) ->
+  statip_keeper_unrelated_sup:spawn_keeper(GroupName, GroupOrigin).
 
-%% @doc Restore all the records in a value registry.
+%% @doc Restore values remembered by value group keeper.
 %%
-%%   Unlike with {@link add/2}, value keeper doesn't send an update to {@link
+%%   Unlike {@link add/2}, keeper doesn't send an update to {@link
 %%   statip_state_log}.
 
 -spec restore(pid(), [#value{}]) ->
   ok.
 
-restore(Pid, Records) ->
-  gen_server:call(Pid, {restore, Records}).
+restore(Pid, Values) ->
+  gen_server:call(Pid, {restore, Values}).
 
-%% @doc Add/update record to a value registry.
+%% @doc Add a new value or update remembered one by the keeper.
 
 -spec add(pid(), #value{}) ->
   ok.
 
-add(Pid, Record = #value{}) ->
-  gen_server:cast(Pid, {add, Record}).
+add(Pid, Value = #value{}) ->
+  gen_server:cast(Pid, {add, Value}).
 
-%% @doc List all keys from value registry.
+%% @doc List keys of all values remembered by the keeper.
 
 -spec list_keys(pid()) ->
   [statip_value:key()].
@@ -91,21 +91,21 @@ add(Pid, Record = #value{}) ->
 list_keys(Pid) ->
   gen_server:call(Pid, list_keys).
 
-%% @doc Retrieve all records from value registry.
+%% @doc Retrieve all values remembered by the keeper.
 
--spec list_records(pid()) ->
+-spec list_values(pid()) ->
   [#value{}].
 
-list_records(Pid) ->
-  gen_server:call(Pid, list_records).
+list_values(Pid) ->
+  gen_server:call(Pid, list_values).
 
-%% @doc Get a record for a specific key.
+%% @doc Get a specific value from keeper.
 
--spec get_record(pid(), statip_value:key()) ->
+-spec get_value(pid(), statip_value:key()) ->
   #value{} | none.
 
-get_record(Pid, Key) ->
-  gen_server:call(Pid, {get_record, Key}).
+get_value(Pid, Key) ->
+  gen_server:call(Pid, {get_value, Key}).
 
 %%%---------------------------------------------------------------------------
 %%% gen_server callbacks
@@ -117,12 +117,12 @@ get_record(Pid, Key) ->
 %% @private
 %% @doc Initialize {@link gen_server} state.
 
-init([ValueName, ValueOrigin] = _Args) ->
-  case statip_registry:add(ValueName, ValueOrigin, self(), ?MODULE) of
+init([GroupName, GroupOrigin] = _Args) ->
+  case statip_registry:add(GroupName, GroupOrigin, self(), ?MODULE) of
     ok ->
       State = #state{
-        value_name = ValueName,
-        value_origin = ValueOrigin,
+        group_name = GroupName,
+        group_origin = GroupOrigin,
         entries = undefined,
         expiry = undefined
       },
@@ -144,21 +144,21 @@ terminate(_Arg, _State) ->
 %% @private
 %% @doc Handle {@link gen_server:call/2}.
 
-handle_call({restore, Records} = _Request, _From, State = #state{}) ->
+handle_call({restore, Values} = _Request, _From, State = #state{}) ->
   {reply, 'TODO', State, 1000};
 
 handle_call(list_keys = _Request, _From, State = #state{entries = Entries}) ->
-  Result = get_record_keys(Entries),
+  Result = store_get_keys(Entries),
   {reply, Result, State, 1000};
 
-handle_call(list_records = _Request, _From,
+handle_call(list_values = _Request, _From,
             State = #state{entries = Entries}) ->
-  Result = get_all_records(Entries),
+  Result = store_get_all_values(Entries),
   {reply, Result, State, 1000};
 
-handle_call({get_record, Key} = _Request, _From,
+handle_call({get_value, Key} = _Request, _From,
             State = #state{entries = Entries}) ->
-  Result = get_record_1(Key, Entries),
+  Result = store_get_value(Key, Entries),
   {reply, Result, State, 1000};
 
 %% unknown calls
@@ -168,9 +168,9 @@ handle_call(_Request, _From, State) ->
 %% @private
 %% @doc Handle {@link gen_server:cast/2}.
 
-handle_cast({add, Record = #value{}} = _Request,
+handle_cast({add, Value = #value{}} = _Request,
             State = #state{entries = Entries, expiry = ExpiryQ}) ->
-  {NewEntries, NewExpiryQ} = add_record(Record, Entries, ExpiryQ),
+  {NewEntries, NewExpiryQ} = store_add(Value, Entries, ExpiryQ),
   NewState = State#state{
     entries = NewEntries,
     expiry = NewExpiryQ
@@ -188,10 +188,10 @@ handle_info(timeout = _Message,
             State = #state{entries = undefined, expiry = undefined}) ->
   {noreply, State, 1000};
 
-%% delete expired records
+%% delete expired values
 handle_info(timeout = _Message,
             State = #state{entries = Entries, expiry = ExpiryQ}) ->
-  {NewEntries, NewExpiryQ} = prune_expired_records(Entries, ExpiryQ),
+  {NewEntries, NewExpiryQ} = store_prune_expired(Entries, ExpiryQ),
   NewState = State#state{
     entries = NewEntries,
     expiry = NewExpiryQ
@@ -220,39 +220,39 @@ code_change(_OldVsn, State, _Extra) ->
 
 %%%---------------------------------------------------------------------------
 
-%% @doc Add a new record to record store and to expiry queue.
+%% @doc Add a new value to value store and to expiry queue.
 
--spec add_record(#value{},
-                 gb_tree() | undefined, statip_pqueue:pqueue() | undefined) ->
+-spec store_add(#value{}, gb_tree() | undefined,
+                statip_pqueue:pqueue() | undefined) ->
   {gb_tree(), statip_pqueue:pqueue()}.
 
-add_record(Record, undefined = _Entries, ExpiryQ) ->
-  add_record(Record, gb_trees:empty(), ExpiryQ);
+store_add(Value, undefined = _Entries, ExpiryQ) ->
+  store_add(Value, gb_trees:empty(), ExpiryQ);
 
-add_record(Record, Entries, undefined = _ExpiryQ) ->
-  add_record(Record, Entries, statip_pqueue:new());
+store_add(Value, Entries, undefined = _ExpiryQ) ->
+  store_add(Value, Entries, statip_pqueue:new());
 
-add_record(Record = #value{key = Key, expires = Expires}, Entries, ExpiryQ) ->
+store_add(Value = #value{key = Key, expires = Expires}, Entries, ExpiryQ) ->
   NewExpiryQ = case gb_trees:lookup(Key, Entries) of
     {value, #value{expires = OldExpires}} ->
       statip_pqueue:update(Key, OldExpires, Expires, ExpiryQ);
     none ->
       statip_pqueue:add(Key, Expires, ExpiryQ)
   end,
-  NewEntries = gb_trees:enter(Key, Record, Entries),
+  NewEntries = gb_trees:enter(Key, Value, Entries),
   {NewEntries, NewExpiryQ}.
 
-%% @doc Remove expired records from record store and expiry queue.
+%% @doc Remove expired values from value store and expiry queue.
 
--spec prune_expired_records(gb_tree(), statip_pqueue:pqueue()) ->
+-spec store_prune_expired(gb_tree(), statip_pqueue:pqueue()) ->
   {gb_tree(), statip_pqueue:pqueue()}.
 
-prune_expired_records(Entries, ExpiryQ) ->
-  prune_expired_records(statip_value:timestamp(), Entries, ExpiryQ).
+store_prune_expired(Entries, ExpiryQ) ->
+  store_prune_expired(statip_value:timestamp(), Entries, ExpiryQ).
 
-%% @doc Workhorse for {@link prune_expired_records/2}.
+%% @doc Workhorse for {@link store_prune_expired/2}.
 
-prune_expired_records(Now, Entries, ExpiryQ) ->
+store_prune_expired(Now, Entries, ExpiryQ) ->
   case statip_pqueue:peek(ExpiryQ) of
     none ->
       % queue empty, so nothing more could expire
@@ -262,38 +262,38 @@ prune_expired_records(Now, Entries, ExpiryQ) ->
       {Entries, ExpiryQ};
     {Key, ExpiryTime} when ExpiryTime =< Now ->
       % another entry expired; pop it from the priority queue, remove from
-      % entries set, and check if another record expired
+      % entries set, and check if another value expired
       {Key, ExpiryTime, NewExpiryQ} = statip_pqueue:pop(ExpiryQ),
       NewEntries = gb_trees:delete(Key, Entries),
-      prune_expired_records(Now, NewEntries, NewExpiryQ)
+      store_prune_expired(Now, NewEntries, NewExpiryQ)
   end.
 
-%% @doc Retrieve the record for specified key from record store.
+%% @doc Retrieve specific value from value store.
 
--spec get_record_1(statip_value:key(), gb_tree()) ->
+-spec store_get_value(statip_value:key(), gb_tree()) ->
   #value{} | none.
 
-get_record_1(Key, Entries) ->
+store_get_value(Key, Entries) ->
   case gb_trees:lookup(Key, Entries) of
-    {value, Record} -> Record;
+    {value, Value} -> Value;
     none -> none
   end.
 
 %% @doc Retrieve all records from record store.
 
--spec get_all_records(gb_tree()) ->
+-spec store_get_all_values(gb_tree()) ->
   [#value{}].
 
-get_all_records(Entries) ->
-  Records = gb_trees:values(Entries),
-  lists:keysort(#value.sort_key, Records).
+store_get_all_values(Entries) ->
+  Values = gb_trees:values(Entries),
+  lists:keysort(#value.sort_key, Values).
 
 %% @doc Retrieve keys for the records from record store.
 
--spec get_record_keys(gb_tree()) ->
+-spec store_get_keys(gb_tree()) ->
   [statip_value:key()].
 
-get_record_keys(Entries) ->
+store_get_keys(Entries) ->
   gb_trees:keys(Entries).
 
 %%%---------------------------------------------------------------------------

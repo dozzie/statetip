@@ -11,181 +11,181 @@
 
 %%----------------------------------------------------------------------------
 
--test("sequence of single records").
-test_single() ->
-  File = "data/replay/single.flog",
+-test("unrelated values group").
+test_unrelated() ->
+  File = "data/replay/unrelated.flog",
   ok = write_file(File, [
-    {single, "sequence", undefined, record("1.one")},
-    {single, "sequence", undefined, record("2.two")},
-    {single, "sequence", undefined, record("3.three")}
+    {unrelated, "sequence", undefined, record("1.one")},
+    {unrelated, "sequence", undefined, record("2.two")},
+    {unrelated, "sequence", undefined, record("3.three")}
   ]),
   Expected = [
-    {single, "sequence", undefined, "1.one", undefined},
-    {single, "sequence", undefined, "2.two", undefined},
-    {single, "sequence", undefined, "3.three", undefined}
+    {unrelated, "sequence", undefined, "1.one", undefined},
+    {unrelated, "sequence", undefined, "2.two", undefined},
+    {unrelated, "sequence", undefined, "3.three", undefined}
   ],
   estap:eq(replay_file(File), Expected, "replay"),
   estap:all_ok().
 
--test("sequence of burst values").
-test_burst() ->
-  File = "data/replay/burst.flog",
+-test("related values group").
+test_related() ->
+  File = "data/replay/related.flog",
   ok = write_file(File, [
-    {burst, "sequence", undefined, record("1.one")},
-    {burst, "sequence", undefined, record("2.two")},
-    {burst, "sequence", undefined, record("3.three")}
+    {related, "sequence", undefined, record("1.one")},
+    {related, "sequence", undefined, record("2.two")},
+    {related, "sequence", undefined, record("3.three")}
   ]),
   Expected = [
-    {burst, "sequence", undefined, "1.one", undefined},
-    {burst, "sequence", undefined, "2.two", undefined},
-    {burst, "sequence", undefined, "3.three", undefined}
+    {related, "sequence", undefined, "1.one", undefined},
+    {related, "sequence", undefined, "2.two", undefined},
+    {related, "sequence", undefined, "3.three", undefined}
   ],
   estap:eq(replay_file(File), Expected, "replay"),
   estap:all_ok().
 
--test("single A, single A.1'").
-test_single_replace() ->
-  File = "data/replay/single-replace.flog",
+-test("unrelated A, unrelated A.1'").
+test_unrelated_replace() ->
+  File = "data/replay/unrelated_replace.flog",
   ok = write_file(File, [
-    {single, "sequence", undefined, record("1.one", "first")},
-    {single, "sequence", undefined, record("2.two", "second")},
-    {single, "sequence", undefined, record("3.three", "third")},
-    {single, "sequence", undefined, record("2.two", "fourth")}
+    {unrelated, "sequence", undefined, record("1.one", "first")},
+    {unrelated, "sequence", undefined, record("2.two", "second")},
+    {unrelated, "sequence", undefined, record("3.three", "third")},
+    {unrelated, "sequence", undefined, record("2.two", "fourth")}
   ]),
   Expected = [
-    {single, "sequence", undefined, "1.one", "first"},
-    {single, "sequence", undefined, "2.two", "fourth"},
-    {single, "sequence", undefined, "3.three", "third"}
+    {unrelated, "sequence", undefined, "1.one", "first"},
+    {unrelated, "sequence", undefined, "2.two", "fourth"},
+    {unrelated, "sequence", undefined, "3.three", "third"}
   ],
   estap:eq(replay_file(File), Expected, "replay"),
   estap:all_ok().
 
--test("burst A, burst A.1'").
-test_burst_replace() ->
-  File = "data/replay/burst-replace.flog",
+-test("related A, related A.1'").
+test_related_replace() ->
+  File = "data/replay/related_replace.flog",
   ok = write_file(File, [
-    {burst, "sequence", undefined, record("1.one", "first")},
-    {burst, "sequence", undefined, record("2.two", "second")},
-    {burst, "sequence", undefined, record("3.three", "third")},
-    {burst, "sequence", undefined, record("2.two", "fourth")}
+    {related, "sequence", undefined, record("1.one", "first")},
+    {related, "sequence", undefined, record("2.two", "second")},
+    {related, "sequence", undefined, record("3.three", "third")},
+    {related, "sequence", undefined, record("2.two", "fourth")}
   ]),
   Expected = [
-    {burst, "sequence", undefined, "1.one", "first"},
-    {burst, "sequence", undefined, "2.two", "fourth"},
-    {burst, "sequence", undefined, "3.three", "third"}
+    {related, "sequence", undefined, "1.one", "first"},
+    {related, "sequence", undefined, "2.two", "fourth"},
+    {related, "sequence", undefined, "3.three", "third"}
   ],
   estap:eq(replay_file(File), Expected, "replay"),
   estap:all_ok().
 
--test("single, clear, single").
-test_single_clear_single() ->
-  File = "data/replay/single_clear_single.flog",
+-test("unrelated, clear, unrelated").
+test_unrelated_clear_unrelated() ->
+  File = "data/replay/unrelated_clear_unrelated.flog",
   ok = write_file(File, [
-    {single, "sequence", undefined, record("s1.one")},
-    {single, "sequence", undefined, record("s2.two")},
+    {unrelated, "sequence", undefined, record("u1.one")},
+    {unrelated, "sequence", undefined, record("u2.two")},
     {clear, "sequence", undefined},
-    {single, "sequence", undefined, record("s3.three")},
-    {single, "sequence", undefined, record("s4.four")}
+    {unrelated, "sequence", undefined, record("u3.three")},
+    {unrelated, "sequence", undefined, record("u4.four")}
   ]),
   Expected = [
-    {single, "sequence", undefined, "s3.three", undefined},
-    {single, "sequence", undefined, "s4.four", undefined}
+    {unrelated, "sequence", undefined, "u3.three", undefined},
+    {unrelated, "sequence", undefined, "u4.four", undefined}
   ],
   estap:eq(replay_file(File), Expected, "replay"),
   estap:all_ok().
 
--test("burst, clear, burst").
-test_burst_clear_burst() ->
-  File = "data/replay/burst_clear_burst.flog",
+-test("related, clear, related").
+test_related_clear_related() ->
+  File = "data/replay/related_clear_related.flog",
   ok = write_file(File, [
-    {burst, "sequence", undefined, record("b1.one")},
-    {burst, "sequence", undefined, record("b2.two")},
+    {related, "sequence", undefined, record("r1.one")},
+    {related, "sequence", undefined, record("r2.two")},
     {clear, "sequence", undefined},
-    {burst, "sequence", undefined, record("b3.three")},
-    {burst, "sequence", undefined, record("b4.four")}
+    {related, "sequence", undefined, record("r3.three")},
+    {related, "sequence", undefined, record("r4.four")}
   ]),
   Expected = [
-    {burst, "sequence", undefined, "b3.three", undefined},
-    {burst, "sequence", undefined, "b4.four", undefined}
+    {related, "sequence", undefined, "r3.three", undefined},
+    {related, "sequence", undefined, "r4.four", undefined}
   ],
   estap:eq(replay_file(File), Expected, "replay"),
   estap:all_ok().
 
--test("single, clear, burst").
-test_single_clear_burst() ->
-  File = "data/replay/single_clear_burst.flog",
+-test("unrelated, clear, related").
+test_unrelated_clear_related() ->
+  File = "data/replay/unrelated_clear_related.flog",
   ok = write_file(File, [
-    {single, "sequence", undefined, record("s1.one")},
-    {single, "sequence", undefined, record("s2.two")},
+    {unrelated, "sequence", undefined, record("u1.one")},
+    {unrelated, "sequence", undefined, record("u2.two")},
     {clear, "sequence", undefined},
-    {burst, "sequence", undefined, record("b1.one")},
-    {burst, "sequence", undefined, record("b2.two")},
-    {burst, "sequence", undefined, record("b3.three")}
+    {related, "sequence", undefined, record("r1.one")},
+    {related, "sequence", undefined, record("r2.two")},
+    {related, "sequence", undefined, record("r3.three")}
   ]),
   Expected = [
-    {burst, "sequence", undefined, "b1.one", undefined},
-    {burst, "sequence", undefined, "b2.two", undefined},
-    {burst, "sequence", undefined, "b3.three", undefined}
+    {related, "sequence", undefined, "r1.one", undefined},
+    {related, "sequence", undefined, "r2.two", undefined},
+    {related, "sequence", undefined, "r3.three", undefined}
   ],
   estap:eq(replay_file(File), Expected, "replay"),
   estap:all_ok().
 
--test("burst, clear, single").
-test_burst_clear_single() ->
-  File = "data/replay/burst_clear_single.flog",
+-test("related, clear, unrelated").
+test_related_clear_unrelated() ->
+  File = "data/replay/related_clear_unrelated.flog",
   ok = write_file(File, [
-    {burst, "sequence", undefined, record("b1.one")},
-    {burst, "sequence", undefined, record("b2.two")},
+    {related, "sequence", undefined, record("r1.one")},
+    {related, "sequence", undefined, record("r2.two")},
     {clear, "sequence", undefined},
-    {single, "sequence", undefined, record("s1.one")},
-    {single, "sequence", undefined, record("s2.two")}
+    {unrelated, "sequence", undefined, record("u1.one")},
+    {unrelated, "sequence", undefined, record("u2.two")}
   ]),
   Expected = [
-    {single, "sequence", undefined, "s1.one", undefined},
-    {single, "sequence", undefined, "s2.two", undefined}
+    {unrelated, "sequence", undefined, "u1.one", undefined},
+    {unrelated, "sequence", undefined, "u2.two", undefined}
   ],
   estap:eq(replay_file(File), Expected, "replay"),
   estap:all_ok().
 
--test("burst, rotate, burst (replace key)").
-test_burst_rotate_burst_replace() ->
-  File = "data/replay/burst_rotate_burst_replace.flog",
+-test("related, rotate, related (replace key)").
+test_related_rotate_related_replace() ->
+  File = "data/replay/related_rotate_related_replace.flog",
   ok = write_file(File, [
-    {burst, "sequence", undefined, record("1.one", "value-1")},
-    {burst, "sequence", undefined, record("2.two", "value-2")},
+    {related, "sequence", undefined, record("1.one", "value-1")},
+    {related, "sequence", undefined, record("2.two", "value-2")},
     {rotate, "sequence", undefined},
-    {burst, "sequence", undefined, record("1.one", "value-3")}
+    {related, "sequence", undefined, record("1.one", "value-3")}
   ]),
   Expected = [
-    {burst, "sequence", undefined, "1.one", "value-3"},
-    {burst, "sequence", undefined, "2.two", "value-2"}
+    {related, "sequence", undefined, "1.one", "value-3"},
+    {related, "sequence", undefined, "2.two", "value-2"}
   ],
   estap:eq(replay_file(File), Expected, "replay"),
   estap:all_ok().
 
--test("burst, rotate, burst (add key)").
-test_burst_rotate_burst_add() ->
-  File = "data/replay/burst_rotate_burst_add.flog",
+-test("related, rotate, related (add key)").
+test_related_rotate_related_add() ->
+  File = "data/replay/related_rotate_related_add.flog",
   ok = write_file(File, [
-    {burst, "sequence", undefined, record("1.one", "value-1")},
-    {burst, "sequence", undefined, record("2.two", "value-2")},
+    {related, "sequence", undefined, record("1.one", "value-1")},
+    {related, "sequence", undefined, record("2.two", "value-2")},
     {rotate, "sequence", undefined},
-    {burst, "sequence", undefined, record("3.three", "value-3")}
+    {related, "sequence", undefined, record("3.three", "value-3")}
   ]),
   Expected = [
-    {burst, "sequence", undefined, "1.one", "value-1"},
-    {burst, "sequence", undefined, "2.two", "value-2"},
-    {burst, "sequence", undefined, "3.three", "value-3"}
+    {related, "sequence", undefined, "1.one", "value-1"},
+    {related, "sequence", undefined, "2.two", "value-2"},
+    {related, "sequence", undefined, "3.three", "value-3"}
   ],
   estap:eq(replay_file(File), Expected, "replay"),
   estap:all_ok().
 
--test("burst, rotate, rotate").
-test_burst_rotate_rotate() ->
-  File = "data/replay/burst_rotate_rotate.flog",
+-test("related, rotate, rotate").
+test_related_rotate_rotate() ->
+  File = "data/replay/related_rotate_rotate.flog",
   ok = write_file(File, [
-    {burst, "sequence", undefined, record("b1.one")},
-    {burst, "sequence", undefined, record("b2.two")},
+    {related, "sequence", undefined, record("r1.one")},
+    {related, "sequence", undefined, record("r2.two")},
     {rotate, "sequence", undefined},
     {rotate, "sequence", undefined}
   ]),
@@ -195,125 +195,125 @@ test_burst_rotate_rotate() ->
   estap:eq(replay_file(File), Expected, "replay"),
   estap:all_ok().
 
--test("single A, burst B").
-test_single_burst() ->
-  File = "data/replay/single_burst.flog",
+-test("unrelated A, related B").
+test_unrelated_related() ->
+  File = "data/replay/unrelated_related.flog",
   ok = write_file(File, [
-    {single, "seqA", undefined, record("s1.one")},
-    {single, "seqA", undefined, record("s2.two")},
-    {burst, "seqB", undefined, record("b1.one")},
-    {burst, "seqB", undefined, record("b2.two")}
+    {unrelated, "seqA", undefined, record("u1.one")},
+    {unrelated, "seqA", undefined, record("u2.two")},
+    {related, "seqB", undefined, record("r1.one")},
+    {related, "seqB", undefined, record("r2.two")}
   ]),
   Expected = [
-    % NOTE: {burst,...} < {single,...}
-    {burst, "seqB", undefined, "b1.one", undefined},
-    {burst, "seqB", undefined, "b2.two", undefined},
-    {single, "seqA", undefined, "s1.one", undefined},
-    {single, "seqA", undefined, "s2.two", undefined}
+    % NOTE: {related,...} < {unrelated,...}
+    {related, "seqB", undefined, "r1.one", undefined},
+    {related, "seqB", undefined, "r2.two", undefined},
+    {unrelated, "seqA", undefined, "u1.one", undefined},
+    {unrelated, "seqA", undefined, "u2.two", undefined}
   ],
   estap:eq(replay_file(File), Expected, "replay"),
   estap:all_ok().
 
--test("single A, burst B, rotate B").
-test_single_burst_rotate() ->
-  File = "data/replay/single_burst_rotate.flog",
+-test("unrelated A, related B, rotate B").
+test_unrelated_related_rotate() ->
+  File = "data/replay/unrelated_related_rotate.flog",
   ok = write_file(File, [
-    {single, "seqA", undefined, record("s1.one")},
-    {single, "seqA", undefined, record("s2.two")},
-    {burst, "seqB", undefined, record("b1.one")},
-    {burst, "seqB", undefined, record("b2.two")},
+    {unrelated, "seqA", undefined, record("u1.one")},
+    {unrelated, "seqA", undefined, record("u2.two")},
+    {related, "seqB", undefined, record("r1.one")},
+    {related, "seqB", undefined, record("r2.two")},
     {rotate, "seqB", undefined}
   ]),
   Expected = [
-    % NOTE: {burst,...} < {single,...}
-    {burst, "seqB", undefined, "b1.one", undefined},
-    {burst, "seqB", undefined, "b2.two", undefined},
-    {single, "seqA", undefined, "s1.one", undefined},
-    {single, "seqA", undefined, "s2.two", undefined}
+    % NOTE: {related,...} < {unrelated,...}
+    {related, "seqB", undefined, "r1.one", undefined},
+    {related, "seqB", undefined, "r2.two", undefined},
+    {unrelated, "seqA", undefined, "u1.one", undefined},
+    {unrelated, "seqA", undefined, "u2.two", undefined}
   ],
   estap:eq(replay_file(File), Expected, "replay"),
   estap:all_ok().
 
--test("single A, clear A.1").
-test_single_clear_part() ->
-  File = "data/replay/single_clear_part.flog",
+-test("unrelated A, clear A.1").
+test_unrelated_clear_part() ->
+  File = "data/replay/unrelated_clear_part.flog",
   ok = write_file(File, [
-    {single, "sequence", undefined, record("1.one")},
-    {single, "sequence", undefined, record("2.two")},
-    {single, "sequence", undefined, record("3.three")},
+    {unrelated, "sequence", undefined, record("1.one")},
+    {unrelated, "sequence", undefined, record("2.two")},
+    {unrelated, "sequence", undefined, record("3.three")},
     {clear, "sequence", undefined, "2.two"}
   ]),
   Expected = [
-    {single, "sequence", undefined, "1.one", undefined},
-    {single, "sequence", undefined, "3.three", undefined}
+    {unrelated, "sequence", undefined, "1.one", undefined},
+    {unrelated, "sequence", undefined, "3.three", undefined}
   ],
   estap:eq(replay_file(File), Expected, "replay"),
   estap:all_ok().
 
--test("single A, clear A.nx").
-test_single_clear_nx_part() ->
-  File = "data/replay/single_clear_part.flog",
+-test("unrelated A, clear A.nx").
+test_unrelated_clear_nx_part() ->
+  File = "data/replay/unrelated_clear_part.flog",
   ok = write_file(File, [
-    {single, "sequence", undefined, record("1.one")},
-    {single, "sequence", undefined, record("2.two")},
-    {single, "sequence", undefined, record("3.three")},
+    {unrelated, "sequence", undefined, record("1.one")},
+    {unrelated, "sequence", undefined, record("2.two")},
+    {unrelated, "sequence", undefined, record("3.three")},
     {clear, "sequence", undefined, "4.four"}
   ]),
   Expected = [
-    {single, "sequence", undefined, "1.one", undefined},
-    {single, "sequence", undefined, "2.two", undefined},
-    {single, "sequence", undefined, "3.three", undefined}
+    {unrelated, "sequence", undefined, "1.one", undefined},
+    {unrelated, "sequence", undefined, "2.two", undefined},
+    {unrelated, "sequence", undefined, "3.three", undefined}
   ],
   estap:eq(replay_file(File), Expected, "replay"),
   estap:all_ok().
 
--test("single A, burst A").
-test_single_burst_ignored() ->
-  File = "data/replay/single_burst_ignored.flog",
+-test("unrelated A, related A").
+test_unrelated_related_ignored() ->
+  File = "data/replay/unrelated_related_ignored.flog",
   ok = write_file(File, [
-    {single, "sequence", undefined, record("1.one")},
-    {single, "sequence", undefined, record("2.two")},
-    {single, "sequence", undefined, record("3.three")},
-    {burst, "sequence", undefined, record("4.four")}
+    {unrelated, "sequence", undefined, record("1.one")},
+    {unrelated, "sequence", undefined, record("2.two")},
+    {unrelated, "sequence", undefined, record("3.three")},
+    {related, "sequence", undefined, record("4.four")}
   ]),
   Expected = [
-    {single, "sequence", undefined, "1.one", undefined},
-    {single, "sequence", undefined, "2.two", undefined},
-    {single, "sequence", undefined, "3.three", undefined}
+    {unrelated, "sequence", undefined, "1.one", undefined},
+    {unrelated, "sequence", undefined, "2.two", undefined},
+    {unrelated, "sequence", undefined, "3.three", undefined}
   ],
   estap:eq(replay_file(File), Expected, "replay"),
   estap:all_ok().
 
--test("burst A, single A").
-test_burst_single_ignored() ->
-  File = "data/replay/burst_single_ignored.flog",
+-test("related A, unrelated A").
+test_related_unrelated_ignored() ->
+  File = "data/replay/related_unrelated_ignored.flog",
   ok = write_file(File, [
-    {burst, "sequence", undefined, record("1.one")},
-    {burst, "sequence", undefined, record("2.two")},
-    {burst, "sequence", undefined, record("3.three")},
-    {single, "sequence", undefined, record("4.four")}
+    {related, "sequence", undefined, record("1.one")},
+    {related, "sequence", undefined, record("2.two")},
+    {related, "sequence", undefined, record("3.three")},
+    {unrelated, "sequence", undefined, record("4.four")}
   ]),
   Expected = [
-    {burst, "sequence", undefined, "1.one", undefined},
-    {burst, "sequence", undefined, "2.two", undefined},
-    {burst, "sequence", undefined, "3.three", undefined}
+    {related, "sequence", undefined, "1.one", undefined},
+    {related, "sequence", undefined, "2.two", undefined},
+    {related, "sequence", undefined, "3.three", undefined}
   ],
   estap:eq(replay_file(File), Expected, "replay"),
   estap:all_ok().
 
--test("single, rotate").
-test_single_rotate() ->
-  File = "data/replay/single_rotate.flog",
+-test("unrelated, rotate").
+test_unrelated_rotate() ->
+  File = "data/replay/unrelated_rotate.flog",
   ok = write_file(File, [
-    {single, "sequence", undefined, record("1.one")},
-    {single, "sequence", undefined, record("2.two")},
-    {single, "sequence", undefined, record("3.three")},
+    {unrelated, "sequence", undefined, record("1.one")},
+    {unrelated, "sequence", undefined, record("2.two")},
+    {unrelated, "sequence", undefined, record("3.three")},
     {rotate, "sequence", undefined}
   ]),
   Expected = [
-    {single, "sequence", undefined, "1.one", undefined},
-    {single, "sequence", undefined, "2.two", undefined},
-    {single, "sequence", undefined, "3.three", undefined}
+    {unrelated, "sequence", undefined, "1.one", undefined},
+    {unrelated, "sequence", undefined, "2.two", undefined},
+    {unrelated, "sequence", undefined, "3.three", undefined}
   ],
   estap:eq(replay_file(File), Expected, "replay"),
   estap:all_ok().
@@ -336,8 +336,8 @@ replay_file(File) ->
 
 replay_fold_fun({Name, Origin}, Type, Records, Acc) ->
   Rs = [
-    {Type, decode(Name), decode(Origin), decode(Key), decode(Value)} ||
-    #value{key = Key, value = Value} <- Records
+    {Type, decode(Name), decode(Origin), decode(Key), decode(State)} ||
+    #value{key = Key, state = State} <- Records
   ],
   [Rs | Acc].
 
@@ -357,30 +357,30 @@ write_file(File, Records) ->
 
 append(Handle, {clear, Name, Origin}) ->
   % type doesn't matter, as long as it makes sense for this record
-  statip_flog:append(Handle, encode(Name), encode(Origin), clear, burst);
+  statip_flog:append(Handle, encode(Name), encode(Origin), clear, related);
 append(Handle, {clear, Name, Origin, Key}) ->
   % type doesn't matter, as long as it makes sense for this record
   statip_flog:append(Handle, encode(Name), encode(Origin),
-                     {clear, encode(Key)}, single);
-append(Handle, {single, Name, Origin, Entry = #value{}}) ->
-  statip_flog:append(Handle, encode(Name), encode(Origin), Entry, single);
-append(Handle, {burst, Name, Origin, Entry = #value{}}) ->
-  statip_flog:append(Handle, encode(Name), encode(Origin), Entry, burst);
+                     {clear, encode(Key)}, unrelated);
+append(Handle, {unrelated, Name, Origin, Entry = #value{}}) ->
+  statip_flog:append(Handle, encode(Name), encode(Origin), Entry, unrelated);
+append(Handle, {related, Name, Origin, Entry = #value{}}) ->
+  statip_flog:append(Handle, encode(Name), encode(Origin), Entry, related);
 append(Handle, {rotate, Name, Origin}) ->
-  statip_flog:append(Handle, encode(Name), encode(Origin), rotate, burst).
+  statip_flog:append(Handle, encode(Name), encode(Origin), rotate, related).
 
 %%----------------------------------------------------------------------------
 
 record(Key) ->
   record(Key, undefined).
 
-record(Key, Value) ->
-  record(Key, Value, 0).
+record(Key, State) ->
+  record(Key, State, 0).
 
-record(Key, Value, TimeOffset) ->
+record(Key, State, TimeOffset) ->
   #value{
     key = encode(Key),
-    value = encode(Value),
+    state = encode(State),
     created = timestamp(TimeOffset),
     expires = timestamp(TimeOffset) + 90
   }.

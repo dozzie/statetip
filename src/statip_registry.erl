@@ -69,8 +69,8 @@ start_link() ->
 -spec add(statip_value:name(), statip_value:origin(), pid(), module()) ->
   ok | {error, name_taken}.
 
-add(ValueName, ValueOrigin, Pid, Module) ->
-  gen_server:call(?MODULE, {add, ValueName, ValueOrigin, Pid, Module}).
+add(GroupName, GroupOrigin, Pid, Module) ->
+  gen_server:call(?MODULE, {add, GroupName, GroupOrigin, Pid, Module}).
 
 %% @doc Find a keeper process for a given value.
 %%
@@ -79,8 +79,8 @@ add(ValueName, ValueOrigin, Pid, Module) ->
 -spec find_process(statip_value:name(), statip_value:origin()) ->
   {pid(), module()} | none.
 
-find_process(ValueName, ValueOrigin) ->
-  case ets:lookup(?ETS_VALUES, {ValueName, ValueOrigin}) of
+find_process(GroupName, GroupOrigin) ->
+  case ets:lookup(?ETS_VALUES, {GroupName, GroupOrigin}) of
     [#value{pid = Pid, module = Module}] ->
       _Result = {Pid, Module};
     [] ->
@@ -97,9 +97,9 @@ list_names() ->
 -spec list_origins(statip_value:name()) ->
   [statip_value:origin()].
 
-list_origins(ValueName) ->
+list_origins(GroupName) ->
   MatchSpec = ets:fun2ms(
-    fun(#value{key = {Name, Origin}}) when Name == ValueName -> Origin end
+    fun(#value{key = {Name, Origin}}) when Name == GroupName -> Origin end
   ),
   ets:select(?ETS_VALUES, MatchSpec).
 
@@ -137,9 +137,9 @@ terminate(_Arg, _State = #state{monitor = Monitor}) ->
 %% @private
 %% @doc Handle {@link gen_server:call/2}.
 
-handle_call({add, ValueName, ValueOrigin, Pid, Module} = _Request, _From,
+handle_call({add, GroupName, GroupOrigin, Pid, Module} = _Request, _From,
             State = #state{monitor = Monitor}) ->
-  RegKey = {ValueName, ValueOrigin},
+  RegKey = {GroupName, GroupOrigin},
   RegRecord = #value{key = RegKey, pid = Pid, module = Module},
   case ets:insert_new(?ETS_VALUES, RegRecord) of
     true ->

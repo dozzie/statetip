@@ -1,11 +1,11 @@
 %%%---------------------------------------------------------------------------
 %%% @private
 %%% @doc
-%%%   Input client handlers supervisor.
+%%%   Reader client handlers supervisor.
 %%% @end
 %%%---------------------------------------------------------------------------
 
--module(statip_input_client_sup).
+-module(statip_reader_client_sup).
 
 -behaviour(supervisor).
 
@@ -45,9 +45,9 @@ start_link() ->
 init([] = _Args) ->
   Strategy = {simple_one_for_one, 5, 10},
   Children = [
-    {statip_input_client,
-      {statip_input_client, start_link, []},
-      temporary, 5000, worker, [statip_input_client]}
+    {statip_reader_client,
+      {statip_reader_client, start_link, []},
+      temporary, 5000, worker, [statip_reader_client]}
   ],
   {ok, {Strategy, Children}}.
 

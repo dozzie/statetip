@@ -1,10 +1,10 @@
 %%%---------------------------------------------------------------------------
 %%% @doc
-%%%   HTTP client connection handler process.
+%%%   Reader client handler.
 %%% @end
 %%%---------------------------------------------------------------------------
 
--module(statip_http_client).
+-module(statip_reader_client).
 
 -behaviour(gen_server).
 
@@ -45,7 +45,7 @@
   ok.
 
 take_over(Socket) ->
-  {ok, Pid} = statip_http_client_sup:spawn_worker(Socket),
+  {ok, Pid} = statip_reader_client_sup:spawn_worker(Socket),
   ok = gen_tcp:controlling_process(Socket, Pid),
   ok = inet:setopts(Socket, [binary, {packet, http_bin}, {active, once}]),
   ok.
@@ -218,26 +218,26 @@ process_request(_State = #state{path = Path, headers = _Headers}) ->
     {ok, {json_all, _Name               }} -> {error, 404};
     {ok, {json_all, _Name, _Origin, _Key}} -> {error, 404};
     {ok, {all, Name, Origin}} ->
-      % FIXME: `statip_value:list_records()' can return `none'
-      case statip_value:list_records(Name, Origin) of
-        Records when is_list(Records) ->
+      % FIXME: `statip_value:list_values()' can return `none'
+      case statip_value:list_values(Name, Origin) of
+        Values when is_list(Values) ->
           Body = lists:map(
             fun(R) ->
-              {ok, JSON} = statip_json:encode(encode_record(Name, Origin, R)),
+              {ok, JSON} = statip_json:encode(encode_value(Name, Origin, R)),
               [JSON, $\n]
             end,
-            Records
+            Values
           ),
           {ok, [content_type(list)], Body};
         none ->
           {error, 404}
       end;
     {ok, {json_all, Name, Origin}} ->
-      % FIXME: `statip_value:list_records()' can return `none'
-      case statip_value:list_records(Name, Origin) of
-        Records when is_list(Records) ->
+      % FIXME: `statip_value:list_values()' can return `none'
+      case statip_value:list_values(Name, Origin) of
+        Values when is_list(Values) ->
           {ok, JSON} = statip_json:encode([
-            encode_record(Name, Origin, R) || R <- Records
+            encode_value(Name, Origin, V) || V <- Values
           ]),
           {ok, [content_type(json)], [JSON, $\n]};
         none ->
@@ -254,9 +254,9 @@ process_request(_State = #state{path = Path, headers = _Headers}) ->
       Keys = statip_value:list_keys(Name, Origin),
       {ok, [content_type(Type)], format(Type, Keys)};
     {ok, {Type, Name, Origin, Key}} when Type == list; Type == json ->
-      case statip_value:get_record(Name, Origin, Key) of
-        Record = #value{} ->
-          Struct = encode_record(Name, Origin, Record),
+      case statip_value:get_value(Name, Origin, Key) of
+        Values = #value{} ->
+          Struct = encode_value(Name, Origin, Values),
           {ok, JSON} = statip_json:encode(Struct),
           {ok, [content_type(Type)], [JSON, $\n]};
         none ->
@@ -337,18 +337,18 @@ format(json, Strings) ->
   {ok, JSON} = statip_json:encode(Strings),
   [JSON, $\n].
 
--spec encode_record(statip_value:name(), statip_value:origin(), #value{}) ->
+-spec encode_value(statip_value:name(), statip_value:origin(), #value{}) ->
   statip_json:struct().
 
-encode_record(Name, Origin, Record = #value{}) ->
+encode_value(Name, Origin, Value = #value{}) ->
   % TODO: how about "created" and "expires" fields?
   _Result = [
     {name, Name},
     {origin, undef_null(Origin)},
-    {key,      Record#value.key},
-    {value,    undef_null(Record#value.value)},
-    {severity, Record#value.severity},
-    {info,     Record#value.info}
+    {key,      Value#value.key},
+    {state,    undef_null(Value#value.state)},
+    {severity, Value#value.severity},
+    {info,     Value#value.info}
   ].
 
 undef_null(undefined = _Value) -> null;

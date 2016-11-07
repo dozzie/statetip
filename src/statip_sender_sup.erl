@@ -1,11 +1,11 @@
 %%%---------------------------------------------------------------------------
 %%% @private
 %%% @doc
-%%%   Value keeper processes supervisor.
+%%%   Sender clients subsystem supervisor.
 %%% @end
 %%%---------------------------------------------------------------------------
 
--module(statip_value_sup).
+-module(statip_sender_sup).
 
 -behaviour(supervisor).
 
@@ -35,12 +35,12 @@ start_link() ->
 init([] = _Args) ->
   Strategy = {one_for_one, 5, 10},
   Children = [
-    {statip_value_single_sup,
-      {statip_value_single_sup, start_link, []},
-      permanent, 5000, supervisor, [statip_value_single_sup]},
-    {statip_value_burst_sup,
-      {statip_value_burst_sup, start_link, []},
-      permanent, 5000, supervisor, [statip_value_burst_sup]}
+    {statip_sender_client_sup,
+      {statip_sender_client_sup, start_link, []},
+      permanent, 5000, supervisor, [statip_sender_client_sup]},
+    {statip_sender_listen,
+      {statip_sender_listen, start_link, []},
+      permanent, 5000, worker, [statip_sender_listen]}
   ],
   {ok, {Strategy, Children}}.
 

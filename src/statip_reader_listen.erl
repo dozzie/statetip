@@ -1,10 +1,10 @@
 %%%---------------------------------------------------------------------------
 %%% @doc
-%%%   HTTP client connection listener process.
+%%%   Reader connection listener process.
 %%% @end
 %%%---------------------------------------------------------------------------
 
--module(statip_http_listener).
+-module(statip_reader_listen).
 
 -behaviour(gen_server).
 
@@ -102,7 +102,7 @@ handle_cast(_Request, State) ->
 handle_info(timeout = _Message, State = #state{socket = Socket}) ->
   case gen_tcp:accept(Socket, ?ACCEPT_LOOP_INTERVAL) of
     {ok, Client} ->
-      ok = statip_http_client:take_over(Client),
+      ok = statip_reader_client:take_over(Client),
       {noreply, State, 0};
     {error, timeout} ->
       % OK, no incoming connection

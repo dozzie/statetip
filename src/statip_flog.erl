@@ -16,7 +16,7 @@
 -export([format_error/1]).
 
 -export_type([handle/0, entry/0]).
--export_type([records/0, mapping/2, single_values/0, burst_values/0]).
+-export_type([records/0, mapping/2, related_values/0, unrelated_values/0]).
 
 -on_load(load_required_atoms/0).
 -export([load_required_atoms/0]).
@@ -31,12 +31,23 @@
 %% Log file handle.
 
 -type entry() ::
-    {clear,  statip_value:name(), statip_value:origin()}
-  | {clear,  statip_value:name(), statip_value:origin(), statip_value:key()}
-  | {rotate, statip_value:name(), statip_value:origin()}
-  | {single, statip_value:name(), statip_value:origin(), #value{}}
-  | {burst,  statip_value:name(), statip_value:origin(), #value{}}.
-%% Record entry read from log file.
+    entry_clear_value_group()
+  | entry_clear_value()
+  | entry_rotate_related_values()
+  | entry_value().
+%% Record read from log file.
+
+-type entry_clear_value_group() ::
+ {clear, statip_value:name(), statip_value:origin()}.
+
+-type entry_clear_value() ::
+ {clear, statip_value:name(), statip_value:origin(), statip_value:key()}.
+
+-type entry_rotate_related_values() ::
+ {rotate, statip_value:name(), statip_value:origin()}.
+
+-type entry_value() ::
+ {related | unrelated, statip_value:name(), statip_value:origin(), #value{}}.
 
 %%----------------------------------------------------------
 %% record header on-disk data {{{
@@ -46,12 +57,12 @@
 -define(RECORD_HEADER_MAGIC_SIZE, 8). % size(?RECORD_HEADER_MAGIC)
 -define(RECORD_HEADER_SIZE, (?RECORD_HEADER_MAGIC_SIZE + 4 + 4)). % +2x 32 bits
 
-%% XXX: each type needs to be a single character (see `decode_log_entry()')
+%% XXX: each type needs to be a single character (see `decode_log_record()')
 -define(TYPE_CLEAR,     <<"c">>).
 -define(TYPE_CLEAR_KEY, <<"k">>).
--define(TYPE_SINGLE,    <<"s">>).
--define(TYPE_BURST,     <<"b">>).
--define(TYPE_BURST_ROTATE, <<"r">>).
+-define(TYPE_UNRELATED, <<"u">>).
+-define(TYPE_RELATED,   <<"r">>).
+-define(TYPE_RELATED_ROTATE, <<"o">>).
 
 %% }}}
 %%----------------------------------------------------------
@@ -59,23 +70,25 @@
 
 -type records() ::
   mapping({statip_value:name(), statip_value:origin()},
-          single_values() | burst_values()).
+          related_values() | unrelated_values()).
 %% A container with records replayed from disk. See {@link replay/3} and
 %% {@link fold/3}.
 
 %% @type mapping(Key, Value) = gb_tree().
-%%   Mapping with keys being of `Key' type and values being of `Value' type.
+%%   Generic mapping with keys being of `Key' type and values being of `Value'
+%%   type.
 
 -type mapping(_Key, _Value) :: gb_tree().
 
--type single_values() :: {single, mapping(statip_value:key(), #value{})}.
-%% Sub-container for {@type records()}, used for storing single (non-burst)
-%% values.
+-type unrelated_values() :: {unrelated, mapping(statip_value:key(), #value{})}.
+%% Sub-container for {@type records()}, used for storing group of values of
+%% "unrelated" type.
 
--type burst_values() ::
-  {burst, Current :: mapping(statip_value:key(), #value{}) | none,
-          Old     :: mapping(statip_value:key(), #value{}) | none}.
-%% Sub-container for {@type records()}, used for storing burst values.
+-type related_values() ::
+  {related, Current :: mapping(statip_value:key(), #value{}) | none,
+            Old     :: mapping(statip_value:key(), #value{}) | none}.
+%% Sub-container for {@type records()}, used for storing group of values of
+%% "related" type.
 
 %% }}}
 %%----------------------------------------------------------
@@ -139,21 +152,21 @@ file_size({flog_write, FH} = _Handle) ->
 %% @doc Append an entry to a log file opened for writing.
 
 -spec append(handle(), statip_value:name(), statip_value:origin(), Entry,
-             single | burst) ->
+             related | unrelated) ->
   ok | {error, read_only | file:posix() | badarg}
   when Entry :: #value{} | rotate | clear | {clear, statip_value:key()}.
 
-append({flog_read, _} = _Handle, _Name, _Origin, _Entry, _ValueType) ->
+append({flog_read, _} = _Handle, _Name, _Origin, _Entry, _GroupType) ->
   {error, read_only};
-append({flog_write, FH} = _Handle, Name, Origin, Entry, ValueType) ->
+append({flog_write, FH} = _Handle, Name, Origin, Entry, GroupType) ->
   {ok, Position} = file:position(FH, cur),
   PrePadding = padding(Position), % in case the previous call was incomplete
-  case build_record(Name, Origin, Entry, ValueType) of
+  case build_record(Name, Origin, Entry, GroupType) of
     {ok, Data} -> file:write(FH, [PrePadding, Data]);
     {error, Reason} -> {error, Reason}
   end.
 
-%% @doc Read an entry from a log file.
+%% @doc Read a record from a log file.
 %%
 %%   Incomplete record at the end of the file is reported simply as `eof',
 %%   with file position being set at the beginning of the record.
@@ -250,7 +263,7 @@ recover({flog_read, FH} = _Handle, ReadBlock) ->
       {error, Reason}
   end.
 
-%% @doc Replay events from a log file.
+%% @doc Replay records from a log file.
 %%
 %%   Function returns a sequence of records that represent what should be
 %%   present state of remembered values, according to the log.
@@ -284,7 +297,7 @@ replay(Handle, ReadBlock, RecoverTries) ->
       {error, Reason}
   end.
 
-%% @doc Continue replaying events from a log file.
+%% @doc Continue replaying records from a log file.
 %%
 %% @see replay/3
 %% @see fold/3
@@ -319,7 +332,7 @@ replay(Handle, ReadBlock, RecoverTries, State) ->
 %% @doc Fold over records replayed from a log file.
 %%
 %%   Note that unlike {@link lists:foldl/3}, `Fun' is called with a <em>list
-%%   of records</em> that have the same value name and value origin.
+%%   of values</em> from the value group (the same name and origin).
 %%
 %% @see replay/3
 %% @see replay/4
@@ -328,7 +341,7 @@ replay(Handle, ReadBlock, RecoverTries, State) ->
   AccOut :: term()
   when Fun :: fun((Key, Type, Records, Acc :: term()) -> NewAcc :: term()),
        Key :: {statip_value:name(), statip_value:origin()},
-       Type :: single | burst,
+       Type :: related | unrelated,
        Records :: [#value{}].
 
 fold(Fun, AccIn, Records) ->
@@ -483,12 +496,12 @@ file_read_exact(FH, Size) ->
 %% @doc Encode log entry for writing to a file.
 
 -spec build_record(statip_value:name(), statip_value:origin(),
-                   Entry, single | burst) ->
+                   Entry, related | unrelated) ->
   {ok, iolist()} | {error, badarg}
   when Entry :: #value{} | rotate | clear | {clear, statip_value:key()}.
 
-build_record(Name, Origin, Entry, ValueType) ->
-  case encode_log_entry(Name, Origin, Entry, ValueType) of
+build_record(Name, Origin, Entry, GroupType) ->
+  case encode_log_record(Name, Origin, Entry, GroupType) of
     {ok, Record} ->
       RecordLength = iolist_size(Record),
       Padding = padding(RecordLength),
@@ -538,7 +551,7 @@ parse_record_header(<<Magic:?RECORD_HEADER_MAGIC_SIZE/binary,
       {error, bad_header}
   end.
 
-%% @doc Parse log entry out of a binary.
+%% @doc Parse log record out of a binary.
 
 -spec parse_record_body(binary(), integer()) ->
   {ok, entry()} | {error, bad_checksum | bad_record}.
@@ -546,7 +559,7 @@ parse_record_header(<<Magic:?RECORD_HEADER_MAGIC_SIZE/binary,
 parse_record_body(Data, Checksum) ->
   case erlang:crc32(Data) of
     Checksum ->
-      try decode_log_entry(Data) of
+      try decode_log_record(Data) of
         Entry -> {ok, Entry}
       catch
         _:_ -> {error, bad_record}
@@ -557,43 +570,43 @@ parse_record_body(Data, Checksum) ->
 
 %% }}}
 %%----------------------------------------------------------
-%% encode_log_entry() {{{
+%% encode_log_record() {{{
 
 %% @doc Encode log entry as a binary.
 
--spec encode_log_entry(statip_value:name(), statip_value:origin(),
-                       Entry, single | burst) ->
+-spec encode_log_record(statip_value:name(), statip_value:origin(),
+                        Entry, related | unrelated) ->
   {ok, iolist()} | {error, badarg}
   when Entry :: #value{} | rotate | clear | {clear, statip_value:key()}.
 
-encode_log_entry(Name, Origin, _Entry, ValueType)
+encode_log_record(Name, Origin, _Entry, GroupType)
 when not is_binary(Name);
      Origin /= undefined, not is_binary(Origin);
-     ValueType /= single, ValueType /= burst ->
+     GroupType /= related, GroupType /= unrelated ->
   {error, badarg};
-encode_log_entry(_Name, _Origin, {clear, _Key} = _Entry, burst = _ValueType) ->
-  {error, badarg}; % operation not expected for burst values
-encode_log_entry(Name, Origin, clear = _Entry, _ValueType) ->
+encode_log_record(_Name, _Origin, {clear, _Key} = _Entry, related = _GroupType) ->
+  {error, badarg}; % operation not expected for "related" values
+encode_log_record(Name, Origin, clear = _Entry, _GroupType) ->
   Payload = [?TYPE_CLEAR, store(Name), store(Origin)],
   {ok, Payload};
-encode_log_entry(Name, Origin, {clear, Key} = _Entry, _ValueType)
+encode_log_record(Name, Origin, {clear, Key} = _Entry, _GroupType)
 when is_binary(Key) ->
   Payload = [?TYPE_CLEAR_KEY, store(Name), store(Origin), store(Key)],
   {ok, Payload};
-encode_log_entry(Name, Origin, rotate = _Entry, burst = _ValueType) ->
-  Payload = [?TYPE_BURST_ROTATE, store(Name), store(Origin)],
+encode_log_record(Name, Origin, rotate = _Entry, related = _GroupType) ->
+  Payload = [?TYPE_RELATED_ROTATE, store(Name), store(Origin)],
   {ok, Payload};
-encode_log_entry(Name, Origin, Entry = #value{key = Key}, ValueType) ->
+encode_log_record(Name, Origin, Entry = #value{key = Key}, GroupType) ->
   PayloadBody = [
     store(Name), store(Origin), store(Key),
     % TODO: less redundant encoding for `Entry'
     store(term_to_binary(Entry, [{minor_version, 1}, compressed]))
   ],
-  case ValueType of
-    single -> {ok, [?TYPE_SINGLE | PayloadBody]};
-    burst  -> {ok, [?TYPE_BURST  | PayloadBody]}
+  case GroupType of
+    unrelated -> {ok, [?TYPE_UNRELATED | PayloadBody]};
+    related   -> {ok, [?TYPE_RELATED   | PayloadBody]}
   end;
-encode_log_entry(_Name, _Origin, _Entry, _ValueType) ->
+encode_log_record(_Name, _Origin, _Entry, _GroupType) ->
   {error, badarg}.
 
 %% @doc Encode either a binary or atom `undefined' as an iolist.
@@ -606,17 +619,16 @@ store(undefined = _Data) -> <<0:32>>.
 
 %% }}}
 %%----------------------------------------------------------
-%% decode_log_entry() {{{
+%% decode_log_record() {{{
 
-%% @doc Decode a log entry from a binary payload.
+%% @doc Decode a log record from a binary payload.
 %%
-%%   If anything with decoding goes wrong, the function raises an unspecified
-%%   error.
+%%   If anything with decoding goes wrong, the function raises an error.
 
--spec decode_log_entry(binary()) ->
+-spec decode_log_record(binary()) ->
   entry() | no_return().
 
-decode_log_entry(<<Type:1/binary, Data/binary>> = _Payload) ->
+decode_log_record(<<Type:1/binary, Data/binary>> = _Payload) ->
   % TODO: check if padding is zeros
   case Type of
     ?TYPE_CLEAR ->
@@ -630,27 +642,27 @@ decode_log_entry(<<Type:1/binary, Data/binary>> = _Payload) ->
         KeyLen:32/integer, Key:KeyLen/binary,
         _Padding/binary>> = Data,
       {clear, Name, null_undefined(Origin), Key};
-    ?TYPE_BURST_ROTATE ->
+    ?TYPE_RELATED_ROTATE ->
       <<NameLen:32/integer, Name:NameLen/binary,
         OriginLen:32/integer, Origin:OriginLen/binary,
         _Padding/binary>> = Data,
       {rotate, Name, null_undefined(Origin)};
-    ?TYPE_SINGLE ->
+    ?TYPE_UNRELATED ->
       <<NameLen:32/integer, Name:NameLen/binary,
         OriginLen:32/integer, Origin:OriginLen/binary,
         KeyLen:32/integer, _Key:KeyLen/binary,
         TermLen:32/integer, TermBin:TermLen/binary,
         _Padding/binary>> = Data,
       Record = binary_to_term(TermBin, [safe]), % TODO: change the encoding
-      {single, Name, null_undefined(Origin), Record};
-    ?TYPE_BURST ->
+      {unrelated, Name, null_undefined(Origin), Record};
+    ?TYPE_RELATED ->
       <<NameLen:32/integer, Name:NameLen/binary,
         OriginLen:32/integer, Origin:OriginLen/binary,
         KeyLen:32/integer, _Key:KeyLen/binary,
         TermLen:32/integer, TermBin:TermLen/binary,
         _Padding/binary>> = Data,
       Record = binary_to_term(TermBin, [safe]), % TODO: change the encoding
-      {burst, Name, null_undefined(Origin), Record}
+      {related, Name, null_undefined(Origin), Record}
   end.
 
 %% @doc Convert an empty binary to `undefined', leaving non-empty binaries
@@ -663,7 +675,7 @@ null_undefined(Bin) -> Bin.
 %%----------------------------------------------------------
 
 %%%---------------------------------------------------------------------------
-%%% replay events from file
+%%% replay records from file
 
 %%----------------------------------------------------------
 %% try_recover() {{{
@@ -699,55 +711,55 @@ replay_add_entry({clear, Name, Origin} = _Entry, State) ->
 
 replay_add_entry({clear, Name, Origin, Key} = _Entry, State) ->
   case gb_trees:lookup({Name, Origin}, State) of
-    {value, {single, KeyMap}} ->
+    {value, {unrelated, KeyMap}} ->
       NewKeyMap = gb_trees:delete_any(Key, KeyMap),
-      _NewState = gb_trees:enter({Name, Origin}, {single, NewKeyMap}, State);
-    {value, {burst, _KeyMap, _OldKeyMap}} ->
-      State; % operation not expected for burst values
+      _NewState = gb_trees:enter({Name, Origin}, {unrelated, NewKeyMap}, State);
+    {value, {related, _KeyMap, _OldKeyMap}} ->
+      State; % operation not expected for group of related values
     none ->
       State
   end;
 
 replay_add_entry({rotate, Name, Origin} = _Entry, State) ->
   case gb_trees:lookup({Name, Origin}, State) of
-    {value, {single, _KeyMap}} ->
-      State; % operation not expected for single values
-    {value, {burst, none = _KeyMap, _OldKeyMap}} ->
+    {value, {unrelated, _KeyMap}} ->
+      State; % operation not expected for group of unrelated values
+    {value, {related, none = _KeyMap, _OldKeyMap}} ->
       _NewState = gb_trees:delete({Name, Origin}, State);
-    {value, {burst, KeyMap, _OldKeyMap}} ->
-      _NewState = gb_trees:enter({Name, Origin}, {burst, none, KeyMap}, State);
+    {value, {related, KeyMap, _OldKeyMap}} ->
+      _NewState = gb_trees:enter({Name, Origin}, {related,none,KeyMap}, State);
     none ->
       State
   end;
 
-replay_add_entry({single, Name, Origin, Value = #value{key = Key}} = _Entry,
+replay_add_entry({unrelated, Name, Origin, Value = #value{key = Key}} = _Entry,
                  State) ->
   case gb_trees:lookup({Name, Origin}, State) of
-    {value, {single, KeyMap}} ->
+    {value, {unrelated, KeyMap}} ->
       NewKeyMap = gb_trees:enter(Key, Value, KeyMap),
-      _NewState = gb_trees:enter({Name, Origin}, {single, NewKeyMap}, State);
-    {value, {burst, _KeyMap, _OldKeyMap}} ->
-      State; % record incompatible with remembered value type
+      _NewState = gb_trees:enter({Name, Origin}, {unrelated,NewKeyMap}, State);
+    {value, {related, _KeyMap, _OldKeyMap}} ->
+      State; % record incompatible with remembered type of value group
     none ->
       NewKeyMap = gb_trees:insert(Key, Value, gb_trees:empty()),
-      _NewState = gb_trees:enter({Name, Origin}, {single, NewKeyMap}, State)
+      _NewState = gb_trees:enter({Name, Origin}, {unrelated, NewKeyMap}, State)
   end;
 
-replay_add_entry({burst, Name, Origin, Value = #value{key = Key}} = _Entry,
+replay_add_entry({related, Name, Origin, Value = #value{key = Key}} = _Entry,
                  State) ->
   case gb_trees:lookup({Name, Origin}, State) of
-    {value, {single, _KeyMap}} ->
-      State; % record incompatible with remembered value type
-    {value, {burst, KeyMap, OldKeyMap}} ->
+    {value, {unrelated, _KeyMap}} ->
+      State; % record incompatible with remembered type of value group
+    {value, {related, KeyMap, OldKeyMap}} ->
       NewKeyMap = case KeyMap of
         none -> gb_trees:insert(Key, Value, gb_trees:empty());
         _    -> gb_trees:enter(Key, Value, KeyMap)
       end,
-      NewValue = {burst, NewKeyMap, OldKeyMap},
+      NewValue = {related, NewKeyMap, OldKeyMap},
       _NewState = gb_trees:enter({Name, Origin}, NewValue, State);
     none ->
       NewKeyMap = gb_trees:insert(Key, Value, gb_trees:empty()),
-      NewValue = {burst, NewKeyMap, none},
+      NewValue = {related, NewKeyMap, none},
       _NewState = gb_trees:enter({Name, Origin}, NewValue, State)
   end.
 
@@ -767,13 +779,13 @@ replay_add_entry({burst, Name, Origin, Value = #value{key = Key}} = _Entry,
 
 foreach(Fun, Acc, Iterator) ->
   case gb_trees:next(Iterator) of
-    {Key, {single, RecTree}, NewIterator} ->
+    {Key, {unrelated, RecTree}, NewIterator} ->
       Records = gb_trees:values(RecTree),
-      NewAcc = Fun(Key, single, Records, Acc),
+      NewAcc = Fun(Key, unrelated, Records, Acc),
       foreach(Fun, NewAcc, NewIterator);
-    {Key, {burst, RecTree, OldRecTree}, NewIterator} ->
+    {Key, {related, RecTree, OldRecTree}, NewIterator} ->
       Records = burst_records(RecTree, OldRecTree),
-      NewAcc = Fun(Key, burst, Records, Acc),
+      NewAcc = Fun(Key, related, Records, Acc),
       foreach(Fun, NewAcc, NewIterator);
     none ->
       Acc

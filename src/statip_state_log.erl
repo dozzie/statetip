@@ -47,39 +47,39 @@
 %%% public interface
 %%%---------------------------------------------------------------------------
 
-%% @doc Append a new data record to state log file.
+%% @doc Append a value record to log file.
 
--spec set(statip_value:name(), statip_value:origin(), burst | single,
+-spec set(statip_value:name(), statip_value:origin(), related | unrelated,
           #value{}) ->
   ok | {error, term()}.
 
-set(ValueName, ValueOrigin, Type, Value = #value{})
-when Type == burst; Type == single ->
-  gen_server:call(?MODULE, {add, Type, ValueName, ValueOrigin, Value}).
+set(GroupName, GroupOrigin, Type, Value = #value{})
+when Type == related; Type == unrelated ->
+  gen_server:call(?MODULE, {add, Type, GroupName, GroupOrigin, Value}).
 
-%% @doc Append a "clear" record for specific key to state log file.
+%% @doc Append a "clear" record for specific key to log file.
 
 -spec clear(statip_value:name(), statip_value:origin(), statip_value:key()) ->
   ok | {error, term()}.
 
-clear(ValueName, ValueOrigin, Key) ->
-  gen_server:call(?MODULE, {clear, ValueName, ValueOrigin, Key}).
+clear(GroupName, GroupOrigin, Key) ->
+  gen_server:call(?MODULE, {clear, GroupName, GroupOrigin, Key}).
 
-%% @doc Append a "clear" record for all keys to state log file.
+%% @doc Append a "clear" record for a value group to state log file.
 
 -spec clear(statip_value:name(), statip_value:origin()) ->
   ok | {error, term()}.
 
-clear(ValueName, ValueOrigin) ->
-  gen_server:call(?MODULE, {clear, ValueName, ValueOrigin}).
+clear(GroupName, GroupOrigin) ->
+  gen_server:call(?MODULE, {clear, GroupName, GroupOrigin}).
 
-%% @doc Append a "rotate" record for burst value.
+%% @doc Append a "rotate" record for related value group.
 
 -spec rotate(statip_value:name(), statip_value:origin()) ->
   ok | {error, term()}.
 
-rotate(ValueName, ValueOrigin) ->
-  gen_server:call(?MODULE, {rotate, ValueName, ValueOrigin}).
+rotate(GroupName, GroupOrigin) ->
+  gen_server:call(?MODULE, {rotate, GroupName, GroupOrigin}).
 
 %% @doc Start log compaction process outside of its schedule.
 
@@ -121,14 +121,15 @@ start_link() ->
 
 init([] = _Args) ->
   % TODO: read byte size limit
+  % TODO: read the values of read block and read retries
   case logger_start_mode() of
     {boot, LogDir} ->
       case replay_logfile(LogDir) of
         {ok, Entries} -> % may be []
           ok = dump_logfile(Entries, LogDir),
           ok = start_keepers(Entries),
-          % XXX: logfile should open cleanly, after both replay and dump,
-          % unless there was no logfile previously
+          % XXX: logfile should open cleanly, after both replay and dump
+          % (unless there was no logfile previously)
           LogFile = filename:join(LogDir, ?LOG_FILE),
           {ok, LogH} = statip_flog:open(LogFile, [write]),
           set_booted_flag(),
@@ -183,40 +184,40 @@ terminate(_Arg, State) ->
 %% @private
 %% @doc Handle {@link gen_server:call/2}.
 
-handle_call({add, _Type, _ValueName, _ValueOrigin, _Value} = _Request, _From,
+handle_call({add, _Type, _GroupName, _GroupOrigin, _Value} = _Request, _From,
             State = #state{log_handle = undefined}) ->
   {reply, ok, State}; % ignore the entry
-handle_call({add, Type, ValueName, ValueOrigin, Value} = _Request, _From,
+handle_call({add, Type, GroupName, GroupOrigin, Value} = _Request, _From,
             State = #state{log_handle = LogH}) ->
   % TODO: log any write errors (e.g. "disk full")
-  statip_flog:append(LogH, ValueName, ValueOrigin, Value, Type),
+  statip_flog:append(LogH, GroupName, GroupOrigin, Value, Type),
   {reply, ok, State};
 
-handle_call({clear, _ValueName, _ValueOrigin, _Key} = _Request, _From,
+handle_call({clear, _GroupName, _GroupOrigin, _Key} = _Request, _From,
             State = #state{log_handle = undefined}) ->
   {reply, ok, State}; % ignore the entry
-handle_call({clear, ValueName, ValueOrigin, Key} = _Request, _From,
+handle_call({clear, GroupName, GroupOrigin, Key} = _Request, _From,
             State = #state{log_handle = LogH}) ->
   % TODO: log any write errors (e.g. "disk full")
-  statip_flog:append(LogH, ValueName, ValueOrigin, {clear, Key}, single),
+  statip_flog:append(LogH, GroupName, GroupOrigin, {clear, Key}, unrelated),
   {reply, ok, State};
 
-handle_call({clear, _ValueName, _ValueOrigin} = _Request, _From,
+handle_call({clear, _GroupName, _GroupOrigin} = _Request, _From,
             State = #state{log_handle = undefined}) ->
   {reply, ok, State}; % ignore the entry
-handle_call({clear, ValueName, ValueOrigin} = _Request, _From,
+handle_call({clear, GroupName, GroupOrigin} = _Request, _From,
             State = #state{log_handle = LogH}) ->
   % TODO: log any write errors (e.g. "disk full")
-  statip_flog:append(LogH, ValueName, ValueOrigin, clear, burst),
+  statip_flog:append(LogH, GroupName, GroupOrigin, clear, related),
   {reply, ok, State};
 
-handle_call({rotate, _ValueName, _ValueOrigin} = _Request, _From,
+handle_call({rotate, _GroupName, _GroupOrigin} = _Request, _From,
             State = #state{log_handle = undefined}) ->
   {reply, ok, State}; % ignore the entry
-handle_call({rotate, ValueName, ValueOrigin} = _Request, _From,
+handle_call({rotate, GroupName, GroupOrigin} = _Request, _From,
             State = #state{log_handle = LogH}) ->
   % TODO: log any write errors (e.g. "disk full")
-  statip_flog:append(LogH, ValueName, ValueOrigin, rotate, burst),
+  statip_flog:append(LogH, GroupName, GroupOrigin, rotate, related),
   {reply, ok, State};
 
 handle_call(compact = _Request, _From, State = #state{log_dir = undefined}) ->
@@ -317,12 +318,11 @@ dump_logfile(Entries, LogDir) ->
 %% @see statip_flog:fold/3
 
 -spec write_records({statip_value:name(), statip_value:origin()},
-                    single | burst, [#value{}], statip_flog:handle()) ->
+                    related | unrelated, [#value{}], statip_flog:handle()) ->
   statip_flog:handle() | no_return().
 
-write_records({ValueName, ValueOrigin} = _Key, Type, Records,
-              Handle = Acc) ->
-  case write_records(Handle, ValueName, ValueOrigin, Records, Type) of
+write_records({GroupName, GroupOrigin} = _Key, Type, Values, Handle = Acc) ->
+  case write_records(Handle, GroupName, GroupOrigin, Values, Type) of
     ok -> Acc;
     {error, Reason} -> throw({error, Reason})
   end.
@@ -331,13 +331,13 @@ write_records({ValueName, ValueOrigin} = _Key, Type, Records,
 
 -spec write_records(statip_flog:handle(),
                     statip_value:name(), statip_value:origin(),
-                    [#value{}], single | burst) ->
+                    [#value{}], related | unrelated) ->
   ok | {error, file:posix() | badarg}.
 
-write_records(_Handle, _Name, _Origin, [] = _Records, _Type) ->
+write_records(_Handle, _Name, _Origin, [] = _Values, _Type) ->
   ok;
-write_records(Handle, Name, Origin, [Record | Rest] = _Records, Type) ->
-  case statip_flog:append(Handle, Name, Origin, Record, Type) of
+write_records(Handle, Name, Origin, [Value | Rest] = _Values, Type) ->
+  case statip_flog:append(Handle, Name, Origin, Value, Type) of
     ok -> write_records(Handle, Name, Origin, Rest, Type);
     {error, Reason} -> {error, Reason}
   end.
@@ -345,10 +345,11 @@ write_records(Handle, Name, Origin, [Record | Rest] = _Records, Type) ->
 %% }}}
 %%----------------------------------------------------------
 
-%% @doc Start value keeper processes.
+%% @doc Start value group keeper processes for value groups replayed from log
+%%   file.
 %%
-%% @see statip_value_single
-%% @see statip_value_burst
+%% @see statip_keeper_related
+%% @see statip_keeper_unrelated
 
 -spec start_keepers(statip_flog:records() | none) ->
   ok.
@@ -363,18 +364,18 @@ start_keepers(Entries) ->
 %%----------------------------------------------------------
 %% starting value keepers {{{
 
-%% @doc Start a single value keeper process with all the necessary records.
+%% @doc Start a single keeper process with all the necessary values.
 %%
 %% @see statip_flog:fold/3
 
 -spec start_keeper({statip_value:name(), statip_value:origin()},
-                   single | burst, [#value{}], Acc) ->
+                   related | unrelated, [#value{}], Acc) ->
   NewAcc
   when Acc :: any(), NewAcc :: any().
 
-start_keeper({ValueName, ValueOrigin} = _Key, Type, Records, Acc)
-when Type == single; Type == burst ->
-  ok = statip_value:restore(ValueName, ValueOrigin, Records, Type),
+start_keeper({GroupName, GroupOrigin} = _Key, Type, Values, Acc)
+when Type == related; Type == unrelated ->
+  ok = statip_value:restore(GroupName, GroupOrigin, Values, Type),
   Acc.
 
 %% }}}
@@ -382,7 +383,8 @@ when Type == single; Type == burst ->
 
 %%%---------------------------------------------------------------------------
 
-%% @doc Detect how {@link init/1} should start the process.
+%% @doc Detect how {@link init/1} should initialize the logger state.
+%%
 %%   The startup process differs a little when no file logging will be done,
 %%   when events will be recorded to a log file, or when the process recovers
 %%   from crash.
