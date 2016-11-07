@@ -1,0 +1,27 @@
+#!/bin/sh
+#
+# Fix some formatting that Sphinx got wrong.
+#
+
+indent_code_blocks() {
+  awk '
+    $1 == ".SH" {sect = $2}
+    $0 == ".ft P" {indent = 0}
+    indent {$0 = "  " $0}
+    # all code blocks except in SYNOPSIS section
+    $0 == ".ft C" && sect != "SYNOPSIS" {indent = 1}
+    {print}
+  '
+}
+
+fix_manpage_references() {
+  # \fIfoo(1)\fR => \fIfoo\fR\|(1)
+  sed 's/\\fI\([^ ]*\)\(([1-8])\)\\fP/\\fI\1\\fR\\|\2/g'
+}
+
+for FILE in "$@"; do
+  cat "$FILE" | \
+    indent_code_blocks | \
+    fix_manpage_references > "$FILE.tmp"
+  mv -- "$FILE.tmp" "$FILE"
+done

@@ -16,13 +16,16 @@ DIAGRAMS_SVG = $(foreach D,$(DIAGRAMS),doc/images/$D.svg)
 
 .PHONY: all doc edoc diagrams compile build clean dialyzer
 
-all: compile doc
+all: compile edoc
 
 build: compile
-edoc: doc
 doc: diagrams
+	${MAKE} -C doc all
 
-compile clean doc:
+edoc:
+	rebar doc
+
+compile clean:
 	rebar $@
 
 diagrams: $(DIAGRAMS_SVG)
