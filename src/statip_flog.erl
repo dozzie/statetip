@@ -345,6 +345,10 @@ format_error(write_only = _Reason) ->
   "file opened for writing only";
 format_error(bad_record = _Reason) ->
   "invalid record in log file";
+format_error(bad_file = _Reason) ->
+  "log file has invalid format";
+format_error(damaged_file = _Reason) ->
+  "log file is damaged";
 %format_error(badarg = _Reason) ->
 %  "bad argument"; % handled by `file:format_error()'
 format_error(Reason) ->
