@@ -165,10 +165,18 @@ handle_cast(_Request, State) ->
 %% @private
 %% @doc Handle incoming messages.
 
-handle_info({'DOWN', Ref, process, _Pid, _Reason} = _Message,
+handle_info({'DOWN', Ref, process, _Pid, Reason} = _Message,
             State = #state{monitor = Monitor}) ->
   case ets:lookup(Monitor, Ref) of
-    [{Ref, RegKey}] ->
+    [{Ref, RegKey}] when Reason == shutdown ->
+      % whole application goes down, not just a single value group, so don't
+      % log the "clear" record for it
+      % FIXME: this doesn't discern the supervisor's crash and regular
+      % shutdown
+      ets:delete(Monitor, Ref),
+      ets:delete(?ETS_VALUES, RegKey);
+    [{Ref, {GroupName, GroupOrigin} = RegKey}] when Reason /= shutdown ->
+      statip_state_log:clear(GroupName, GroupOrigin),
       ets:delete(Monitor, Ref),
       ets:delete(?ETS_VALUES, RegKey);
     [] ->

@@ -1,8 +1,6 @@
 %%%---------------------------------------------------------------------------
 %%% @doc
 %%%   Value group keeper process for related values.
-%%%
-%%% @todo send internal state updates to state logger
 %%% @end
 %%%---------------------------------------------------------------------------
 
@@ -148,8 +146,8 @@ terminate(_Arg, _State) ->
 %% @private
 %% @doc Handle {@link gen_server:call/2}.
 
-handle_call({restore, Values} = _Request, _From, State = #state{}) ->
-  % TODO: generate `rotate' log record
+handle_call({restore, Values} = _Request, _From, State) ->
+  % TODO: send "rotate" record on first value that comes later
   NewState = restore_values(Values, State),
   {reply, ok, NewState, 1000};
 
@@ -178,8 +176,12 @@ handle_call(_Request, _From, State) ->
 %% @private
 %% @doc Handle {@link gen_server:cast/2}.
 
-handle_cast({add, Value = #value{}} = _Request, State) ->
+handle_cast({add, Value = #value{}} = _Request,
+            State = #state{group_name = GroupName,
+                           group_origin = GroupOrigin}) ->
+  % XXX: `add_value()' can send a "rotate" record, so `set()' goes after that
   NewState = add_value(Value, State),
+  statip_state_log:set(GroupName, GroupOrigin, related, Value),
   {noreply, NewState, 1000};
 
 %% unknown casts
@@ -230,9 +232,12 @@ restore_values(Values, State = #state{}) ->
   }.
 
 add_value(Value = #value{key = Key, expires = NewExpiryTime},
-          State = #state{current_entries = Entries, expires = ExpiryTime}) ->
+          State = #state{current_entries = Entries, expires = ExpiryTime,
+                         group_name = GroupName,
+                         group_origin = GroupOrigin}) ->
   case gb_trees:is_defined(Key, Entries) of
     true ->
+      statip_state_log:rotate(GroupName, GroupOrigin),
       % key that occurred in last burst, so it's a new burst apparently;
       % rotate and take the new value's expiry time
       _NewState = State#state{

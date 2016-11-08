@@ -1,8 +1,6 @@
 %%%---------------------------------------------------------------------------
 %%% @doc
 %%%   Value group keeper process for unrelated values.
-%%%
-%%% @todo send internal state updates to state logger
 %%% @end
 %%%---------------------------------------------------------------------------
 
@@ -181,7 +179,10 @@ handle_call(_Request, _From, State) ->
 %% @doc Handle {@link gen_server:cast/2}.
 
 handle_cast({add, Value = #value{}} = _Request,
-            State = #state{entries = Entries, expiry = ExpiryQ}) ->
+            State = #state{entries = Entries, expiry = ExpiryQ,
+                           group_name = GroupName,
+                           group_origin = GroupOrigin}) ->
+  statip_state_log:set(GroupName, GroupOrigin, unrelated, Value),
   {NewEntries, NewExpiryQ} = store_add(Value, Entries, ExpiryQ),
   NewState = State#state{
     entries = NewEntries,
@@ -202,8 +203,11 @@ handle_info(timeout = _Message,
 
 %% delete expired values
 handle_info(timeout = _Message,
-            State = #state{entries = Entries, expiry = ExpiryQ}) ->
-  {NewEntries, NewExpiryQ} = store_prune_expired(Entries, ExpiryQ),
+            State = #state{entries = Entries, expiry = ExpiryQ,
+                           group_name = GroupName,
+                           group_origin = GroupOrigin}) ->
+  ValueGroup = {GroupName, GroupOrigin},
+  {NewEntries, NewExpiryQ} = store_prune_expired(Entries, ExpiryQ, ValueGroup),
   NewState = State#state{
     entries = NewEntries,
     expiry = NewExpiryQ
@@ -256,15 +260,16 @@ store_add(Value = #value{key = Key, expires = Expires}, Entries, ExpiryQ) ->
 
 %% @doc Remove expired values from value store and expiry queue.
 
--spec store_prune_expired(gb_tree(), statip_pqueue:pqueue()) ->
+-spec store_prune_expired(gb_tree(), statip_pqueue:pqueue(),
+                          {statip_value:name(), statip_value:origin()}) ->
   {gb_tree(), statip_pqueue:pqueue()}.
 
-store_prune_expired(Entries, ExpiryQ) ->
-  store_prune_expired(statip_value:timestamp(), Entries, ExpiryQ).
+store_prune_expired(Entries, ExpiryQ, ValueGroup) ->
+  store_prune_expired(statip_value:timestamp(), Entries, ExpiryQ, ValueGroup).
 
 %% @doc Workhorse for {@link store_prune_expired/2}.
 
-store_prune_expired(Now, Entries, ExpiryQ) ->
+store_prune_expired(Now, Entries, ExpiryQ, {Name, Origin} = ValueGroup) ->
   case statip_pqueue:peek(ExpiryQ) of
     none ->
       % queue empty, so nothing more could expire
@@ -277,7 +282,8 @@ store_prune_expired(Now, Entries, ExpiryQ) ->
       % entries set, and check if another value expired
       {Key, ExpiryTime, NewExpiryQ} = statip_pqueue:pop(ExpiryQ),
       NewEntries = gb_trees:delete(Key, Entries),
-      store_prune_expired(Now, NewEntries, NewExpiryQ)
+      statip_state_log:clear(Name, Origin, Key),
+      store_prune_expired(Now, NewEntries, NewExpiryQ, ValueGroup)
   end.
 
 %% @doc Retrieve specific value from value store.
