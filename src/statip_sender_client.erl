@@ -190,6 +190,12 @@ decode(Line) ->
 
 extract_value(Struct, DefaultExpiry) ->
   try extract_value(Struct, #meta{}, #value{}) of
+    {_Meta = #meta{name = undefined}, _Value} ->
+      {error, bad_format};
+    {_Meta = #meta{type = undefined}, _Value} ->
+      {error, bad_format};
+    {_Meta, _Value = #value{key = undefined}} ->
+      {error, bad_format};
     {Meta = #meta{name = Name, origin = Origin, type = Type}, Value} ->
       NewValue = fill_defaults(Meta, Value, DefaultExpiry),
       {ok, {Name, Origin, NewValue, Type}}
