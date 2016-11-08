@@ -69,6 +69,8 @@ spawn_keeper(GroupName, GroupOrigin) ->
 %%
 %%   Unlike {@link add/2}, keeper doesn't send an update to {@link
 %%   statip_state_log}.
+%%
+%%   Values list is expected not to contain two values with the same key.
 
 -spec restore(pid(), [#value{}]) ->
   ok.
@@ -147,7 +149,9 @@ terminate(_Arg, _State) ->
 %% @doc Handle {@link gen_server:call/2}.
 
 handle_call({restore, Values} = _Request, _From, State = #state{}) ->
-  {reply, 'TODO', State, 1000};
+  % TODO: generate `rotate' log record
+  NewState = restore_values(Values, State),
+  {reply, ok, NewState, 1000};
 
 handle_call(list_keys = _Request, _From,
             State = #state{current_entries = CurEntries,
@@ -211,6 +215,19 @@ code_change(_OldVsn, State, _Extra) ->
 %%----------------------------------------------------------
 
 %%%---------------------------------------------------------------------------
+
+restore_values(Values, State = #state{}) ->
+  % TODO: honour expiry time of the values
+  Entries = lists:foldl(
+    fun(V = #value{key = K}, Tree) -> gb_trees:insert(K, V, Tree) end,
+    gb_trees:empty(),
+    Values
+  ),
+  _NewState = State#state{
+    current_entries = gb_trees:empty(),
+    previous_entries = Entries,
+    expires = undefined
+  }.
 
 add_value(Value = #value{key = Key, expires = NewExpiryTime},
           State = #state{current_entries = Entries, expires = ExpiryTime}) ->

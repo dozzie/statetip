@@ -145,7 +145,19 @@ terminate(_Arg, _State) ->
 %% @doc Handle {@link gen_server:call/2}.
 
 handle_call({restore, Values} = _Request, _From, State = #state{}) ->
-  {reply, 'TODO', State, 1000};
+  % XXX: expiry time of the values will be taken care of by the regular
+  % mechanisms, additionally producing `{clear, Key}' log records, which is
+  % desired for next restart
+  {NewEntries, NewExpiryQ} = lists:foldl(
+    fun(V, {E,Q}) -> store_add(V, E, Q) end,
+    {undefined, undefined},
+    Values
+  ),
+  NewState = State#state{
+    entries = NewEntries,
+    expiry = NewExpiryQ
+  },
+  {reply, ok, NewState, 1000};
 
 handle_call(list_keys = _Request, _From, State = #state{entries = Entries}) ->
   Result = store_get_keys(Entries),
