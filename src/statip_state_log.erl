@@ -15,7 +15,7 @@
 -export([compact/0]).
 
 %% internal interface
--export([]).
+-export([compact/3]).
 
 %% supervision tree API
 -export([start/0, start_link/0]).
@@ -35,11 +35,13 @@
 -define(LOG_FILE_COMPACT_TEMP, "state.log.compact").
 -define(READ_BLOCK, 4096).
 -define(READ_RETRIES, 3).
+-define(COMPACT_DECISION_INTERVAL, timer:seconds(30)).
 
 -record(state, {
   log_dir :: file:filename(),
   log_handle :: statip_flog:handle(),
-  compaction :: reference() | undefined
+  compaction :: {reference(), term()} | undefined,
+  compaction_size :: pos_integer()
 }).
 
 %%% }}}
@@ -84,14 +86,10 @@ rotate(GroupName, GroupOrigin) ->
 %% @doc Start log compaction process outside of its schedule.
 
 -spec compact() ->
-  ok.
+  ok | {error, already_running | file:posix()}.
 
 compact() ->
   gen_server:call(?MODULE, compact).
-
-%%%---------------------------------------------------------------------------
-%%% internal interface
-%%%---------------------------------------------------------------------------
 
 %%%---------------------------------------------------------------------------
 %%% supervision tree API
@@ -120,22 +118,21 @@ start_link() ->
 %% @doc Initialize {@link gen_server} state.
 
 init([] = _Args) ->
-  % TODO: read byte size limit
   % TODO: read the values of read block and read retries
   case logger_start_mode() of
-    {boot, LogDir} ->
+    {boot, LogDir, CompactionSize} ->
+      erlang:send_after(?COMPACT_DECISION_INTERVAL, self(), check_log_size),
       case replay_logfile(LogDir) of
         {ok, Entries} -> % may be []
           ok = dump_logfile(Entries, LogDir),
           ok = start_keepers(Entries),
-          % XXX: logfile should open cleanly, after both replay and dump
-          % (unless there was no logfile previously)
           LogFile = filename:join(LogDir, ?LOG_FILE),
           {ok, LogH} = statip_flog:open(LogFile, [write]),
           set_booted_flag(),
           State = #state{
             log_dir = LogDir,
-            log_handle = LogH
+            log_handle = LogH,
+            compaction_size = CompactionSize
           },
           {ok, State};
         %{error, bad_file = _Reason} ->
@@ -143,13 +140,15 @@ init([] = _Args) ->
         {error, Reason} ->
           {stop, {replay, Reason}}
       end;
-    {crash_recovery, LogDir} ->
+    {crash_recovery, LogDir, CompactionSize} ->
+      erlang:send_after(?COMPACT_DECISION_INTERVAL, self(), check_log_size),
       LogFile = filename:join(LogDir, ?LOG_FILE),
       case statip_flog:open(LogFile, [write]) of
         {ok, LogH} ->
           State = #state{
             log_dir = LogDir,
-            log_handle = LogH
+            log_handle = LogH,
+            compaction_size = CompactionSize
           },
           {ok, State};
         {error, Reason} ->
@@ -173,7 +172,7 @@ terminate(_Arg, State) ->
   end,
   case State of
     #state{compaction = undefined} -> ok;
-    #state{compaction = _} -> 'TODO'
+    #state{compaction = {_, CompactHandle}} -> abort_compaction(CompactHandle)
   end,
   ok.
 
@@ -221,10 +220,19 @@ handle_call({rotate, GroupName, GroupOrigin} = _Request, _From,
   {reply, ok, State};
 
 handle_call(compact = _Request, _From, State = #state{log_dir = undefined}) ->
+  % ignore compaction requests
   {reply, ok, State};
-handle_call(compact = _Request, _From, State = #state{log_dir = _LogDir}) ->
-  % TODO: start compaction process, update `State#state.compaction' field
-  {reply, 'TODO', State};
+handle_call(compact = _Request, _From, State = #state{compaction = {_,_}}) ->
+  {reply, {error, already_running}, State};
+handle_call(compact = _Request, _From, State = #state{log_dir = LogDir}) ->
+  case start_compaction(LogDir) of
+    {ok, {_Ref, _Handle} = CompactHandle} ->
+      NewState = State#state{compaction = CompactHandle},
+      {reply, ok, NewState};
+    {error, Reason} ->
+      % TODO: log this event
+      {reply, {error, Reason}, State}
+  end;
 
 %% unknown calls
 handle_call(_Request, _From, State) ->
@@ -239,6 +247,45 @@ handle_cast(_Request, State) ->
 
 %% @private
 %% @doc Handle incoming messages.
+
+handle_info(check_log_size = _Message, State = #state{log_dir = undefined}) ->
+  {noreply, State};
+handle_info(check_log_size = _Message, State = #state{log_dir = LogDir}) ->
+  erlang:send_after(?COMPACT_DECISION_INTERVAL, self(), check_log_size),
+  case should_compaction_start(State) of
+    true ->
+      case start_compaction(LogDir) of
+        {ok, {_Ref, _Handle} = CompactHandle} ->
+          NewState = State#state{compaction = CompactHandle},
+          {noreply, NewState};
+        {error, _Reason} ->
+          % TODO: log this event
+          {noreply, State}
+      end;
+    false ->
+      {noreply, State}
+  end;
+
+handle_info({compaction_finished, Ref, Result} = _Message,
+            State = #state{compaction = {Ref, CompactHandle},
+                           log_dir = LogDir, log_handle = LogH}) ->
+  case finish_compaction(Result, CompactHandle, LogDir) of
+    ok ->
+      statip_flog:close(LogH),
+      % TODO: handle open errors
+      LogFile = filename:join(LogDir, ?LOG_FILE),
+      {ok, NewLogH} = statip_flog:open(LogFile, [write]),
+      NewState = State#state{
+        compaction = undefined,
+        log_handle = NewLogH
+      },
+      {noreply, NewState};
+    {error, _Reason} ->
+      % TODO: log this event
+      % TODO: what to do now with `LogH'?
+      NewState = State#state{compaction = undefined},
+      {noreply, NewState}
+  end;
 
 %% unknown messages
 handle_info(_Message, State) ->
@@ -382,6 +429,101 @@ when Type == related; Type == unrelated ->
 %%----------------------------------------------------------
 
 %%%---------------------------------------------------------------------------
+%%% log compaction
+
+%% @doc Log compaction process' main procedure.
+%%
+%% @see start_compaction/1
+
+-spec compact(statip_flog:handle(), pid(), reference()) ->
+  any().
+
+compact(Handle, ResultTo, Ref) ->
+  Result = statip_flog:replay(Handle, ?READ_BLOCK, ?READ_RETRIES),
+  ResultTo ! {compaction_finished, Ref, Result}.
+
+%% @doc Function to tell when the state logger should start compacting its
+%%   log file.
+
+-spec should_compaction_start(#state{}) ->
+  true | false.
+
+should_compaction_start(_State = #state{compaction = {_,_}}) ->
+  % compaction in progress
+  false;
+should_compaction_start(_State = #state{log_handle = undefined}) ->
+  % log file is not opened
+  false;
+should_compaction_start(_State = #state{compaction_size = CompactionSize,
+                                        log_handle = LogH}) ->
+  {ok, LogSize} = statip_flog:file_size(LogH),
+  LogSize >= CompactionSize.
+
+%% @doc Start asynchronous process of compacting a log file.
+%%
+%%   At the end, the calling process receives
+%%   {@type @{compaction_finished, Ref :: reference(), Result :: term()@}} and
+%%   should call {@link finish_compaction/3}.
+%%
+%% @see finish_compaction/3
+%% @see abort_compaction/1
+
+-spec start_compaction(file:filename()) ->
+    {ok, {Ref :: reference(), CompactHandle :: term()}}
+  | {error, file:posix()}.
+
+start_compaction(LogDir) ->
+  LogFile = filename:join(LogDir, ?LOG_FILE),
+  case statip_flog:open(LogFile, [read]) of
+    {ok, Handle} ->
+      Ref = make_ref(),
+      Pid = spawn_link(?MODULE, compact, [Handle, self(), Ref]),
+      CompactHandle = {compact, Ref, Pid, Handle},
+      {ok, {Ref, CompactHandle}};
+    {error, Reason} ->
+      {error, Reason}
+  end.
+
+%% @doc Finalize the log compaction.
+%%
+%%   This function should be called upon receiving {@type
+%%   @{compaction_finished, _Ref :: reference(), Result :: term()@}}.
+%%
+%% @see start_compaction/1
+%% @see abort_compaction/1
+
+-spec finish_compaction(term(), CompactHandle :: term(), file:filename()) ->
+  ok | {error, damaged_file | file:posix()}.
+
+finish_compaction({error, Reason} = _Result, {_Ref, _Pid, Handle}, _LogDir) ->
+  statip_flog:close(Handle),
+  {error, Reason};
+
+finish_compaction({ok, Records} = _Result, {_Ref, _Pid, Handle}, LogDir) ->
+  case statip_flog:replay(Handle, ?READ_BLOCK, ?READ_RETRIES, Records) of
+    {ok, AllRecords} ->
+      statip_flog:close(Handle),
+      dump_logfile(AllRecords, LogDir);
+    {error, Reason} ->
+      statip_flog:close(Handle),
+      {error, Reason}
+  end.
+
+%% @doc Abort an already running log compaction process.
+%%
+%% @see start_compaction/1
+%% @see finish_compaction/3
+
+-spec abort_compaction(term()) ->
+  ok.
+
+abort_compaction({_Ref, Pid, Handle} = _CompactHandle) ->
+  unlink(Pid),
+  exit(Pid, shutdown),
+  statip_flog:close(Handle),
+  ok.
+
+%%%---------------------------------------------------------------------------
 
 %% @doc Detect how {@link init/1} should initialize the logger state.
 %%
@@ -390,15 +532,18 @@ when Type == related; Type == unrelated ->
 %%   from crash.
 
 -spec logger_start_mode() ->
-  {boot, LogDir} | {crash_recovery, LogDir} | no_logging
+    {boot, LogDir, CompactionSize}
+  | {crash_recovery, LogDir, CompactionSize}
+  | no_logging
   when LogDir :: file:filename().
 
 logger_start_mode() ->
   case application:get_env(state_dir) of
     {ok, LogDir} ->
+      {ok, CompactionSize} = application:get_env(compaction_size),
       case ets:lookup(?ETS_BOOT_TABLE, booted) of
-        [{booted, true}] -> {crash_recovery, LogDir};
-        [] -> {boot, LogDir}
+        [{booted, true}] -> {crash_recovery, LogDir, CompactionSize};
+        [] -> {boot, LogDir, CompactionSize}
       end;
     undefined ->
       no_logging
