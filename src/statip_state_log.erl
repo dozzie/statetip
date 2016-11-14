@@ -235,7 +235,7 @@ handle_info(check_log_size = _Message, State = #state{log_dir = LogDir}) ->
     true ->
       {ok, {_Ref, _Handle} = CompactHandle} = start_compaction(LogDir),
       NewState = State#state{compaction = CompactHandle},
-      {reply, ok, NewState};
+      {noreply, NewState};
     false ->
       {noreply, State}
   end;
