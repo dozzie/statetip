@@ -326,6 +326,7 @@ configure_statip(GlobalConfig, _Options) ->
     {[<<"events">>, <<"listen">>], {statip, input}},
     {[<<"http">>,   <<"listen">>], {statip, http}},
     {[<<"store">>,  <<"directory">>], {statip, state_dir}},
+    {[<<"store">>,  <<"compaction_size">>], {statip, compaction_size}},
     {[<<"events">>, <<"default_expiry">>], {statip, default_expiry}}
   ],
   indira_app:set_env(
@@ -359,6 +360,9 @@ config_check([_Section, <<"listen">>] = _Key, _EnvKey, Value) ->
   end;
 config_check([<<"store">>, <<"directory">>] = _Key, _EnvKey, Value)
 when is_binary(Value) ->
+  ok;
+config_check([<<"store">>, <<"compaction_size">>] = _Key, _EnvKey, Size)
+when is_integer(Size), Size > 0 ->
   ok;
 config_check([<<"events">>, <<"default_expiry">>] = _Key, _EnvKey, Value)
 when is_integer(Value), Value > 0 ->

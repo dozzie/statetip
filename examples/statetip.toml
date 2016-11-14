@@ -16,6 +16,9 @@
 # directory to store state between restarts; if not set, state won't be
 # remembered between StateTip restarts
 #directory = "/var/lib/statetip"
+# state log size, above which the compaction process is started; the default
+# value of 10 MB is reached in about 30 minutes when events come at 5.5 kB/s
+#compaction_size = 10485760
 
 [logging]
 # log destinations ("statip_syslog_h" and/or "statip_tty_h")
