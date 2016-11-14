@@ -37,9 +37,9 @@ start_link() ->
 init([] = _Args) ->
   Strategy = {one_for_one, 5, 10},
   Children = [
-    %{statip_log,
-    %  {statip_log, start_link, []},
-    %  permanent, 5000, worker, [statip_log]},
+    {statip_log,
+      {statip_log, start_link, []},
+      permanent, 5000, worker, [statip_log]},
     {statip_registry,
       {statip_registry, start_link, []},
       permanent, 5000, worker, [statip_registry]},

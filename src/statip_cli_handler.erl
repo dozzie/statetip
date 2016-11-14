@@ -327,7 +327,8 @@ configure_statip(GlobalConfig, _Options) ->
     {[<<"http">>,   <<"listen">>], {statip, http}},
     {[<<"store">>,  <<"directory">>], {statip, state_dir}},
     {[<<"store">>,  <<"compaction_size">>], {statip, compaction_size}},
-    {[<<"events">>, <<"default_expiry">>], {statip, default_expiry}}
+    {[<<"events">>, <<"default_expiry">>], {statip, default_expiry}},
+    {[<<"logging">>, <<"handlers">>], {statip, log_handlers}}
   ],
   indira_app:set_env(
     fun config_get/2,
@@ -367,6 +368,18 @@ when is_integer(Size), Size > 0 ->
 config_check([<<"events">>, <<"default_expiry">>] = _Key, _EnvKey, Value)
 when is_integer(Value), Value > 0 ->
   ok;
+config_check([<<"logging">>, <<"handlers">>] = _Key, _EnvKey, Handlers)
+when is_list(Handlers) ->
+  try
+    NewHandlers = [
+      {binary_to_atom(H, utf8), []} ||
+      H <- Handlers
+    ],
+    {ok, NewHandlers}
+  catch
+    error:_ ->
+      {error, invalid_value}
+  end;
 config_check(_Key, _EnvKey, _Value) ->
   {error, invalid_value}.
 
