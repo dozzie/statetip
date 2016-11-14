@@ -75,6 +75,12 @@ start_link(Socket) ->
 %% @doc Initialize {@link gen_server} state.
 
 init([Socket] = _Args) ->
+  {ok, {PeerAddr, PeerPort}} = inet:peername(Socket),
+  {ok, {LocalAddr, LocalPort}} = inet:sockname(Socket),
+  statip_log:set_context(sender_client, [
+    {client, {str, format_address(PeerAddr, PeerPort)}},
+    {local_address, {str, format_address(LocalAddr, LocalPort)}}
+  ]),
   State = #state{socket = Socket},
   {ok, State}.
 
@@ -120,7 +126,7 @@ handle_info({tcp, Socket, Line} = _Request,
       {noreply, State};
     {error, not_json} ->
       % stop when non-JSON
-      % TODO: log this event
+      statip_log:warn("malformed message", []),
       {stop, normal, State}
   end;
 
@@ -130,7 +136,6 @@ handle_info({tcp_closed, Socket} = _Request,
 
 handle_info({tcp_error, Socket, _Reason} = _Request,
             State = #state{socket = Socket}) ->
-  % TODO: log the error
   {stop, normal, State};
 
 %% unknown messages
@@ -296,6 +301,21 @@ extract_value([{<<"info">>, Info} | Rest], Meta, Value) ->
 extract_value([{_Key, _Value} | Rest], Meta, Value) ->
   % skip unknown keys
   extract_value(Rest, Meta, Value).
+
+%%%---------------------------------------------------------------------------
+
+-spec format_address(inet:ip_address(), inet:port_number()) ->
+  string().
+
+format_address({A,B,C,D} = _Address, Port) ->
+  % TODO: IPv6
+  OctetList = [
+    integer_to_list(A),
+    integer_to_list(B),
+    integer_to_list(C),
+    integer_to_list(D)
+  ],
+  string:join(OctetList, ".") ++ ":" ++ integer_to_list(Port).
 
 %%%---------------------------------------------------------------------------
 %%% vim:ft=erlang:foldmethod=marker

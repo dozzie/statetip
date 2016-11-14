@@ -15,7 +15,7 @@
 -export([compact/0]).
 
 %% internal interface
--export([compact/3]).
+-export([compact/4]).
 
 %% supervision tree API
 -export([start/0, start_link/0]).
@@ -118,11 +118,14 @@ start_link() ->
 %% @doc Initialize {@link gen_server} state.
 
 init([] = _Args) ->
+  statip_log:set_context(state_log, []),
   % TODO: read the values of read block and read retries
   case application:get_env(state_dir) of
     {ok, LogDir} ->
+      statip_log:append_context([{log_dir, {str, LogDir}}]),
       case prepare_logfile(LogDir) of
         {ok, Entries} ->
+          statip_log:info("starting state logger", []),
           ok = dump_logfile(Entries, LogDir), % TODO: error handling
           ok = start_keepers(Entries),
           erlang:send_after(?COMPACT_DECISION_INTERVAL, self(), check_log_size),
@@ -136,6 +139,7 @@ init([] = _Args) ->
           },
           {ok, State};
         {error, Reason} ->
+          statip_log:err("can't compact log file", [{error, {term, Reason}}]),
           {stop, {replay, Reason}}
       end;
     undefined ->
@@ -451,25 +455,42 @@ when Type == related; Type == unrelated ->
 %%
 %% @see start_compaction/1
 
--spec compact(file:filename(), pid(), reference()) ->
+-spec compact(file:filename(), pid(), reference(),
+              {statip_log:event_type(), statip_log:event_info()}) ->
   any().
 
-compact(LogFile, ResultTo, Ref) ->
+compact(LogFile, ResultTo, Ref, {LogType, LogContext}) ->
+  statip_log:set_context(LogType, LogContext),
+  statip_log:append_context([{log_file, LogFile}]),
   case statip_flog:open(LogFile, [read]) of
     {ok, Handle} ->
+      statip_log:info("starting replaying events", []),
       case statip_flog:replay(Handle, ?READ_BLOCK, ?READ_RETRIES) of
         {ok, Records} ->
+          statip_log:info("synchronizing with logger", []),
           ResultTo ! {compaction_finished, Ref, sync},
           receive
             {sync, Ref} ->
               Result = statip_flog:replay(Handle, ?READ_BLOCK, ?READ_RETRIES,
                                           Records),
+              case Result of
+                {ok, _} ->
+                  statip_log:info("log replay complete", []);
+                {error, Reason} ->
+                  statip_log:warn("log replay failed", [
+                    {error, {term, Reason}}
+                  ])
+              end,
               ResultTo ! {compaction_finished, Ref, Result}
           end;
         {error, Reason} ->
+          statip_log:warn("log replay failed", [{error, {term, Reason}}]),
           ResultTo ! {compaction_finished, Ref, {error, Reason}}
       end;
     {error, Reason} ->
+      statip_log:warn("can't open log file for replaying", [
+        {error, {term, Reason}}
+      ]),
       ResultTo ! {compaction_finished, Ref, {error, Reason}}
   end.
 
@@ -488,7 +509,8 @@ compact(LogFile, ResultTo, Ref) ->
 start_compaction(LogDir) ->
   LogFile = filename:join(LogDir, ?LOG_FILE),
   Ref = make_ref(),
-  Pid = spawn_link(?MODULE, compact, [LogFile, self(), Ref]),
+  {_,_} = Logger = statip_log:get_context(),
+  Pid = spawn_link(?MODULE, compact, [LogFile, self(), Ref, Logger]),
   CompactHandle = {compact, Ref, Pid},
   {ok, {Ref, CompactHandle}}.
 

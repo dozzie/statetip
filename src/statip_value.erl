@@ -84,7 +84,7 @@ add(GroupName, GroupOrigin, Value = #value{key = Key, sort_key = undefined},
 add(GroupName, GroupOrigin, Value, GroupType) ->
   case get_keeper(GroupName, GroupOrigin, GroupType) of
     {Pid, Module} -> Module:add(Pid, Value);
-    none -> ok % TODO: log this event
+    none -> ok
   end.
 
 %% @doc List names of value groups.
@@ -195,10 +195,32 @@ get_keeper(GroupName, GroupOrigin, GroupType) ->
       none;
     none ->
       case start_keeper(GroupName, GroupOrigin, GroupType) of
-        {Pid, Module} -> {Pid, Module};
-        none -> statip_registry:find_process(GroupName, GroupOrigin)
+        {Pid, Module} ->
+          {Pid, Module};
+        none ->
+          case statip_registry:find_process(GroupName, GroupOrigin) of
+            {Pid, Module} ->
+              {Pid, Module};
+            none ->
+              statip_log:warn(value,
+                "couldn't start a value group keeper: race condition occurred",
+                log_context(GroupName, GroupOrigin, GroupType)
+              ),
+              none
+          end
       end
   end.
+
+log_context(GroupName, GroupOrigin, GroupType) when is_binary(GroupOrigin) ->
+  _Context = [
+    {group_name, GroupName}, {group_origin, GroupOrigin},
+    {group_type, GroupType}
+  ];
+log_context(GroupName, undefined = _GroupOrigin, GroupType) ->
+  _Context = [
+    {group_name, GroupName}, {group_origin, null},
+    {group_type, GroupType}
+  ].
 
 %% @doc Start a new value group keeper process, depending on value group's
 %%   type.

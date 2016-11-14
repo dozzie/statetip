@@ -77,6 +77,12 @@ start_link(Socket) ->
 %% @doc Initialize {@link gen_server} state.
 
 init([Socket] = _Args) ->
+  {ok, {PeerAddr, PeerPort}} = inet:peername(Socket),
+  {ok, {LocalAddr, LocalPort}} = inet:sockname(Socket),
+  statip_log:set_context(reader_client, [
+    {client, {str, format_address(PeerAddr, PeerPort)}},
+    {local_address, {str, format_address(LocalAddr, LocalPort)}}
+  ]),
   State = #state{socket = Socket},
   {ok, State}.
 
@@ -125,7 +131,11 @@ handle_info({http, Socket, Packet} = _Request,
           {stop, normal, NewState}
       catch
         Error:Reason ->
-          % TODO: log this
+          statip_log:warn("error when handling request", [
+            {type, Error}, {reason, {term, Reason}},
+            {request_path, NewState#state.path},
+            {headers, NewState#state.headers}
+          ]),
           gen_tcp:send(Socket, [http_reply(500)]),
           {stop, {Error, Reason}, State}
       end;
@@ -353,6 +363,21 @@ encode_value(Name, Origin, Value = #value{}) ->
 
 undef_null(undefined = _Value) -> null;
 undef_null(Value) -> Value.
+
+%%----------------------------------------------------------
+
+-spec format_address(inet:ip_address(), inet:port_number()) ->
+  string().
+
+format_address({A,B,C,D} = _Address, Port) ->
+  % TODO: IPv6
+  OctetList = [
+    integer_to_list(A),
+    integer_to_list(B),
+    integer_to_list(C),
+    integer_to_list(D)
+  ],
+  string:join(OctetList, ".") ++ ":" ++ integer_to_list(Port).
 
 %%----------------------------------------------------------
 
