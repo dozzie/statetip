@@ -481,9 +481,11 @@ compact(LogFile, ResultTo, Ref, {LogType, LogContext}) ->
                     {error, {term, Reason}}
                   ])
               end,
+              statip_flog:close(Handle),
               ResultTo ! {compaction_finished, Ref, Result}
           end;
         {error, Reason} ->
+          statip_flog:close(Handle),
           statip_log:warn("log replay failed", [{error, {term, Reason}}]),
           ResultTo ! {compaction_finished, Ref, {error, Reason}}
       end;
