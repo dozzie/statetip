@@ -219,16 +219,17 @@ code_change(_OldVsn, State, _Extra) ->
 %%%---------------------------------------------------------------------------
 
 restore_values(Values, State = #state{}) ->
-  % TODO: honour expiry time of the values
   Entries = lists:foldl(
     fun(V = #value{key = K}, Tree) -> gb_trees:insert(K, V, Tree) end,
     gb_trees:empty(),
     Values
   ),
+  % XXX: it's guaranteed that `Values' is a non-empty list
+  ExpiryTime = lists:max([E || #value{expires = E} <- Values]),
   _NewState = State#state{
     current_entries = gb_trees:empty(),
     previous_entries = Entries,
-    expires = undefined
+    expires = ExpiryTime
   }.
 
 add_value(Value = #value{key = Key, expires = NewExpiryTime},
