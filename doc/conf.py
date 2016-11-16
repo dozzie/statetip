@@ -53,7 +53,7 @@ man_pages = [
     ('manpages/statetip', 'statetip', u'StateTip Client',
      [], 1),
     ('manpages/statetipd', 'statetipd', u'StateTip Daemon',
-     [], 1),
+     [], 8),
 ]
 
 #man_show_urls = False
