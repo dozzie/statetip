@@ -70,7 +70,7 @@ spawn_keeper(GroupName, GroupOrigin) ->
 %%
 %%   Values list is expected not to contain two values with the same key.
 
--spec restore(pid(), [#value{}]) ->
+-spec restore(pid(), [#value{}, ...]) ->
   ok.
 
 restore(Pid, Values) ->

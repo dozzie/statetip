@@ -342,7 +342,7 @@ replay(Handle, ReadBlock, RecoverTries, State) ->
   when Fun :: fun((Key, Type, Records, Acc :: term()) -> NewAcc :: term()),
        Key :: {statip_value:name(), statip_value:origin()},
        Type :: related | unrelated,
-       Records :: [#value{}].
+       Records :: [#value{}, ...].
 
 fold(Fun, AccIn, Records) ->
   foreach(Fun, AccIn, gb_trees:iterator(Records)).
@@ -713,7 +713,13 @@ replay_add_entry({clear, Name, Origin, Key} = _Entry, State) ->
   case gb_trees:lookup({Name, Origin}, State) of
     {value, {unrelated, KeyMap}} ->
       NewKeyMap = gb_trees:delete_any(Key, KeyMap),
-      _NewState = gb_trees:enter({Name, Origin}, {unrelated, NewKeyMap}, State);
+      case gb_trees:is_empty(NewKeyMap) of
+        true ->
+          _NewState = gb_trees:delete({Name, Origin}, State);
+        false ->
+          NewValue = {unrelated, NewKeyMap},
+          _NewState = gb_trees:enter({Name, Origin}, NewValue, State)
+      end;
     {value, {related, _KeyMap, _OldKeyMap}} ->
       State; % operation not expected for group of related values
     none ->

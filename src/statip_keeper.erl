@@ -20,7 +20,7 @@
 
 %% only called on boot, may ignore any previous internal state
 %% `Values' has no two values with the same key
--callback restore(Pid :: pid(), Values :: [#value{}]) ->
+-callback restore(Pid :: pid(), Values :: [#value{}, ...]) ->
   ok.
 
 %% should not die on noproc

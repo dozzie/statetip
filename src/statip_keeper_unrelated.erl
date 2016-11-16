@@ -67,7 +67,7 @@ spawn_keeper(GroupName, GroupOrigin) ->
 %%   Unlike {@link add/2}, keeper doesn't send an update to {@link
 %%   statip_state_log}.
 
--spec restore(pid(), [#value{}]) ->
+-spec restore(pid(), [#value{}, ...]) ->
   ok.
 
 restore(Pid, Values) ->
