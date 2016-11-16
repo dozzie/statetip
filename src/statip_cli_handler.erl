@@ -172,14 +172,14 @@ format_request(Command, _Options) ->
 handle_reply(Reply, status = Command, _Options) ->
   % `status' and `status_wait' have the same `Command' and replies
   case ?ADMIN_COMMAND_MODULE:parse_reply(Reply, Command) of
-    {ok, <<"running">> = _Status} ->
+    running ->
       io:fwrite("statetipd is running~n"),
       ok;
-    {ok, <<"stopped">> = _Status} ->
+    stopped ->
       io:fwrite("statetipd is stopped~n"),
       {error, 1};
     % for future changes in status detection
-    {ok, Status} ->
+    Status ->
       {error, {unknown_status, Status}}
   end;
 
