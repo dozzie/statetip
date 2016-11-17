@@ -2,3 +2,6 @@
 *.beam
 *.plt
 /ebin/*.app
+/build
+/pylib/*.egg-info
+*.pyc
