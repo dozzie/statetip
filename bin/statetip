@@ -3,6 +3,7 @@
 import optparse
 import sys
 import json
+import statetip
 
 #-----------------------------------------------------------------------------
 # command line options {{{
@@ -161,45 +162,91 @@ if "all" in options.print_fields:
 if options.mode is MODE_SENDER and len(args) > 0:
     parser.error("excessive arguments for sender mode")
 
+if options.mode is MODE_READER and len(args) > 3:
+    parser.error("excessive arguments for reader mode")
+
 # }}}
 #-----------------------------------------------------------------------------
 
-for o in sorted(options.__dict__):
-    print "%s = %s" % (o, getattr(options, o))
+if options.mode is MODE_SENDER:
+    print >>sys.stderr, "TODO: implement me"
+    sys.exit(255)
+else: # MODE_READER
+    reader = statetip.StateTipReader(
+        host = options.address,
+        port = options.port,
+    )
 
-# TODO:
-# $ statetip
-#   > cpus
-#   > filesystems
-#   > interfaces
-# $ statetip --json
-#   > ["cpus", "filesystems", "interfaces"]
-# $ statetip $name
-#   > web01
-#   > web02
-#   > db01
-# $ statetip $name --json
-#   > ["web01", "web02", "db01"]
-# $ statetip $name $origin
-#   > cpu0
-#   > cpu1
-# $ statetip $name $origin --json
-#   > ["cpu0", "cpu1"]
-# $ statetip $name $origin --all
-#   > {"name": $name, "origin": $origin, "key": "cpu0", "state": null, ...}
-#   > {"name": $name, "origin": $origin, "key": "cpu1", "state": null, ...}
-# $ statetip $name $origin --all --json
-#   > [{"name": ...}, ...]
-# $ statetip $name $origin $key --state  # default op if no option specified
-#   > up
-# $ statetip $name $origin $key --state --json  # not that it makes sense
-#   > "up"
-# $ statetip $name $origin $key --severity
-#   > expected
-# $ statetip $name $origin $key --info
-#   > null
-# $ statetip $name $origin $key --all
-#   > {"name": $name, "origin": $origin, "key": "cpu0", "state": null, ...}
+    def dump(data, mode):
+        if mode == "string":
+            if data is not None:
+                print data
+        elif mode == "json":
+            print json.dumps(data, sort_keys = True)
+        elif mode == "list":
+            for d in data:
+                print d if d is not None else ""
+        elif mode == "list-json":
+            for d in data:
+                print json.dumps(d, sort_keys = True)
+
+    try:
+        if len(args) == 0:
+            if options.print_json:
+                mode = "json"
+            else:
+                mode = "list"
+            dump(reader.names(), mode)
+        elif len(args) == 1:
+            name = args[0]
+            if options.print_json:
+                mode = "json"
+            else:
+                mode = "list"
+            dump(reader.origins(name), mode)
+        elif len(args) == 2:
+            (name, origin) = args
+            if origin == "/":
+                origin = None
+
+            if "all" not in options.print_fields:
+                if options.print_json:
+                    mode = "json"
+                else:
+                    mode = "list"
+                dump(reader.keys(name, origin), mode)
+            else:
+                if options.print_json:
+                    mode = "json"
+                else:
+                    mode = "list-json"
+                dump(reader.values(name, origin), mode)
+        elif len(args) == 3:
+            (name, origin, key) = args
+            if origin == "/":
+                origin = None
+
+            value = reader.get(name, origin, key)
+            if options.print_json:
+                mode = "json"
+            else:
+                mode = "string"
+
+            for field in options.print_fields:
+                if field == "all":
+                    dump(value, mode = "json")
+                elif field == "info":
+                    dump(value["info"], mode = "json")
+                elif field == "state" or field == "severity":
+                    dump(value[field], mode)
+    except KeyboardInterrupt:
+        pass
+    except statetip.StateTipException, e:
+        print >>sys.stderr, "%s" % (e,)
+        sys.exit(1)
+    except ValueError, e:
+        print >>sys.stderr, "%s" % (e,)
+        sys.exit(1)
 
 #-----------------------------------------------------------------------------
 # vim:ft=python:foldmethod=marker
