@@ -9,7 +9,6 @@ Table of contents
    :maxdepth: 2
 
    manpages/index
-   protocol
    glossary
 
 

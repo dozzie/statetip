@@ -260,6 +260,19 @@ Example:
 
 .. describe:: log_file
 
+Client protocols
+================
+
+Sender protocol
+---------------
+
+.. include:: protocol_sender.rst.common
+
+Reader protocol
+---------------
+
+.. include:: protocol_reader.rst.common
+
 See Also
 ========
 
