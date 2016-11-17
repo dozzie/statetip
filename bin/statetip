@@ -1,0 +1,205 @@
+#!/usr/bin/python
+
+import optparse
+import sys
+import json
+
+#-----------------------------------------------------------------------------
+# command line options {{{
+
+#-----------------------------------------------------------
+# constants class {{{
+
+class Constant:
+    def __init__(self, name):
+        self.name = name
+    def __str__(self):
+        return "<%s>" % (self.name,)
+
+# }}}
+#-----------------------------------------------------------
+
+MODE_READER = Constant("reader")
+MODE_SENDER = Constant("sender")
+
+TYPE_RELATED = Constant("related")
+TYPE_UNRELATED = Constant("unrelated")
+ORIGIN_NULL = Constant("null")
+
+parser = optparse.OptionParser(
+    usage =
+        "\n  %prog [--reader] [options] [name [origin [key]]]"
+        "\n  %prog --sender --name=GROUP_NAME [options]",
+    description =
+        'For null origin, specify "/".'
+)
+
+parser.add_option(
+    "--reader", dest = "mode",
+    action = "store_const", const = MODE_READER,
+    help = "reader client mode (this is the default)",
+)
+parser.add_option(
+    "--sender", dest = "mode",
+    action = "store_const", const = MODE_SENDER,
+    help = "sender client mode",
+)
+parser.set_defaults(mode = MODE_READER)
+
+parser.add_option(
+    "--address", dest = "address",
+    default = "localhost",
+    help = "StateTip address (default: localhost)",
+)
+parser.add_option(
+    "--port", dest = "port", type = "int",
+    help = "StateTip port (default: 3012 in sender mode, 3082 in reader mode)",
+)
+
+#-----------------------------------------------------------
+# reader mode options {{{
+
+reader_group = optparse.OptionGroup(
+    parser = parser,
+    title = "Reader mode options",
+)
+
+reader_group.add_option(
+    "--json", dest = "print_json",
+    action = "store_true", default = False,
+    help = "print all entries as a JSON list (default is to print entries"
+           " line by line)",
+)
+
+reader_group.add_option(
+    "--all", dest = "print_fields",
+    action = "store_const", const = ["all"],
+    help = "when reading specific origin of value name, print all the values"
+           " as JSON objects; when reading specific value, print the whole"
+           " value",
+)
+reader_group.add_option(
+    "--state", dest = "print_fields",
+    action = "append_const", const = "state",
+    help = "when reading specific value, print its state (this is the"
+           " default if nothing was specified)",
+)
+reader_group.add_option(
+    "--severity", dest = "print_fields",
+    action = "append_const", const = "severity",
+    help = "when reading specific value, print its severity",
+)
+reader_group.add_option(
+    "--info", dest = "print_fields",
+    action = "append_const", const = "info",
+    help = "when reading specific value, print its info field as JSON",
+)
+
+parser.add_option_group(reader_group)
+parser.set_defaults(print_fields = [])
+
+# }}}
+#-----------------------------------------------------------
+# sender mode options {{{
+
+sender_group = optparse.OptionGroup(
+    parser = parser,
+    title = "Sender mode options",
+)
+
+sender_group.add_option(
+    "--unrelated", dest = "group_type",
+    action = "store_const", const = TYPE_UNRELATED,
+    help = "values sent are unrelated to each other (this is the default)",
+)
+sender_group.add_option(
+    "--related", dest = "group_type",
+    action = "store_const", const = TYPE_RELATED,
+    help = "values sent are related to each other",
+)
+
+sender_group.add_option(
+    "--name", dest = "group_name",
+    help = "set value group name (required)",
+    metavar = "NAME",
+)
+
+sender_group.add_option(
+    "--origin", dest = "group_origin",
+    help = "set value group's origin (required this or --null-origin option)",
+    metavar = "ORIGIN",
+)
+sender_group.add_option(
+    "--null-origin", dest = "group_origin",
+    action = "store_const", const = ORIGIN_NULL,
+    help = "value group's origin is null (required this or --origin=... option)",
+)
+
+sender_group.add_option(
+    "--expiry", dest = "expiry", type = "int",
+    help = "expiry time for values (default: allow StateTip to set expiry"
+           " time)",
+    metavar = "SECONDS",
+)
+
+parser.add_option_group(sender_group)
+parser.set_defaults(group_type = TYPE_UNRELATED)
+
+# }}}
+#-----------------------------------------------------------
+
+(options, args) = parser.parse_args()
+
+if options.port is None:
+    options.port = 3082 if options.mode is MODE_READER else 3012
+if len(options.print_fields) == 0:
+    options.print_fields = ["state"]
+if "all" in options.print_fields:
+    # all the fields will be printed, so no need to print anything else
+    options.print_fields = ["all"]
+
+if options.mode is MODE_SENDER and len(args) > 0:
+    parser.error("excessive arguments for sender mode")
+
+# }}}
+#-----------------------------------------------------------------------------
+
+for o in sorted(options.__dict__):
+    print "%s = %s" % (o, getattr(options, o))
+
+# TODO:
+# $ statetip
+#   > cpus
+#   > filesystems
+#   > interfaces
+# $ statetip --json
+#   > ["cpus", "filesystems", "interfaces"]
+# $ statetip $name
+#   > web01
+#   > web02
+#   > db01
+# $ statetip $name --json
+#   > ["web01", "web02", "db01"]
+# $ statetip $name $origin
+#   > cpu0
+#   > cpu1
+# $ statetip $name $origin --json
+#   > ["cpu0", "cpu1"]
+# $ statetip $name $origin --all
+#   > {"name": $name, "origin": $origin, "key": "cpu0", "state": null, ...}
+#   > {"name": $name, "origin": $origin, "key": "cpu1", "state": null, ...}
+# $ statetip $name $origin --all --json
+#   > [{"name": ...}, ...]
+# $ statetip $name $origin $key --state  # default op if no option specified
+#   > up
+# $ statetip $name $origin $key --state --json  # not that it makes sense
+#   > "up"
+# $ statetip $name $origin $key --severity
+#   > expected
+# $ statetip $name $origin $key --info
+#   > null
+# $ statetip $name $origin $key --all
+#   > {"name": $name, "origin": $origin, "key": "cpu0", "state": null, ...}
+
+#-----------------------------------------------------------------------------
+# vim:ft=python:foldmethod=marker

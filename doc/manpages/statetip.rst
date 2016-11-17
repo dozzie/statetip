@@ -7,33 +7,78 @@ Synopsis
 
 .. code-block:: none
 
-    events-stream | statetip --sender [options]
     statetip [--reader] [options] [<name> [<origin> [<key>]]]
+    events-stream ... | statetip --sender --name=<name> [options]
 
 Description
 ===========
 
-Aenean et aliquet ante. Quisque tincidunt ex ut tellus dictum
-scelerisque. Sed et velit id dolor cursus fringilla suscipit a odio.
-Mauris erat lectus, pharetra id metus in, mattis convallis magna.
-Aliquam vel justo scelerisque, elementum purus eget, tincidunt erat.
-Aliquam a tellus dolor.
+:program:`statetip` is a client for StateTip. It can be used to inspect and
+read data collected by :manpage:`statetipd(8)`, which is called the *reader
+mode*, or to send new data from *STDIN* to :manpage:`statetipd(8)`, which is
+called the *sender mode*.
+
+*NOTE*: To read null origin, specify ``"/"``, which otherwise is not a valid
+character in origin.
 
 Options
 =======
 
-.. option:: --sender
-
-   Lorem ipsum dolor sit amet.
-
 .. option:: --reader
+.. option:: --sender
+.. option:: --address=<address>
+.. option:: --port=<port>
 
-   Lorem ipsum dolor sit amet.
+Reader mode options
+-------------------
 
-Configuration
-=============
+.. option:: --json
+.. option:: --all
+.. option:: --state
+.. option:: --severity
+.. option:: --info
 
+Sender mode options
+-------------------
+
+.. option:: --unrelated
+.. option:: --related
+.. option:: --name=<name>
+.. option:: --origin=<origin>
+.. option:: --null-origin
+.. option:: --expiry=<seconds>
+
+Input protocol
+==============
+
+Input with :option:`--origin` or :option:`--null-origin`:
+
+.. code-block:: none
+
+    key
+    key value
+    key value severity
+
+Input without :option:`--origin` and :option:`--null-origin`:
+
+.. code-block:: none
+
+    origin key
+    origin key value
+    origin key value severity
+
+Severities: ``expected``, ``warning``, ``error``.
+
+Neither group name nor group origin should contain slash. Key can contain
+slashes.
+
+Sender client protocol
+----------------------
+
+.. include:: protocol_sender.rst.common
 
 See Also
 ========
 
+* :manpage:`statetipd(8)`
+* Seismometer <http://seismometer.net/>
