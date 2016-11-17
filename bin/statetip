@@ -159,6 +159,9 @@ if "all" in options.print_fields:
     # all the fields will be printed, so no need to print anything else
     options.print_fields = ["all"]
 
+if options.mode is MODE_SENDER and options.group_name is None:
+    parser.error("--name=... is required")
+
 if options.mode is MODE_SENDER and len(args) > 0:
     parser.error("excessive arguments for sender mode")
 
@@ -169,8 +172,66 @@ if options.mode is MODE_READER and len(args) > 3:
 #-----------------------------------------------------------------------------
 
 if options.mode is MODE_SENDER:
-    print >>sys.stderr, "TODO: implement me"
-    sys.exit(255)
+    def read_line(handle, expect_origin):
+        line = handle.readline()
+        if line == '':
+            return None
+        fields = line.split()
+        if expect_origin:
+            if len(fields) > 4 or len(fields) < 2:
+                raise ValueError("invalid input line")
+            if len(fields) == 4 and \
+               fields[-1] not in ["expected", "warning", "error"]:
+                raise ValueError("invalid input line")
+            fields.extend([None] * (4 - len(fields)))
+        else:
+            if len(fields) > 3 or len(fields) < 1:
+                raise ValueError("invalid input line")
+            if len(fields) == 3 and \
+               fields[-1] not in ["expected", "warning", "error"]:
+                raise ValueError("invalid input line")
+            fields.extend([None] * (3 - len(fields)))
+        return fields
+
+    expect_origin = (options.group_origin is None)
+
+    try:
+        sender = statetip.StateTipSender(
+            host = options.address,
+            port = options.port,
+        )
+
+        result = read_line(sys.stdin, expect_origin)
+        while result is not None:
+            # either 3 or 4 fields
+            (key, state, severity) = result[-3:]
+
+            if expect_origin:
+                group_origin = result[0]
+            elif options.group_origin is ORIGIN_NULL:
+                group_origin = None
+            else:
+                group_origin = options.group_origin
+
+            sender.send(
+                related  = (options.group_type is TYPE_RELATED),
+                name     = options.group_name,
+                origin   = group_origin,
+                key      = key,
+                state    = state,
+                severity = severity,
+                expiry   = options.expiry,
+            )
+            result = read_line(sys.stdin, expect_origin)
+    except KeyboardInterrupt:
+        pass
+    except statetip.StateTipException, e:
+        print >>sys.stderr, "%s" % (e,)
+        sys.exit(1)
+    except ValueError, e:
+        print >>sys.stderr, "%s" % (e,)
+        sys.exit(1)
+
 else: # MODE_READER
     reader = statetip.StateTipReader(
         host = options.address,
