@@ -15,7 +15,7 @@ __VERSION__ = "0.0.0"
 class StateTipException(Exception):
     pass
 
-class URLError(StateTipException):
+class AddressError(StateTipException):
     pass
 
 class NetworkError(StateTipException):
@@ -73,7 +73,7 @@ class StateTipReader:
         self.timeout = timeout
 
     def _json_request(self, path_format, *args):
-        # XXX: can raise URLError, NetworkError, Timeout, or ValueError
+        # XXX: can raise AddressError, NetworkError, Timeout, or ValueError
         request = urllib2.Request(
             ("http://%s:%s" + path_format) % ((self.host, self.port) + args),
             headers = {
@@ -89,7 +89,7 @@ class StateTipReader:
         except socket.timeout, e:
             raise Timeout("request timed out")
         except ValueError, e:
-            raise URLError("invalid host or port: %s" % (e,))
+            raise AddressError("invalid host or port: %s" % (e,))
 
         try:
             return json.load(reply_handle)
