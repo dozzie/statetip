@@ -1,5 +1,20 @@
 #!/usr/bin/python
 '''
+
+.. autoclass:: StateTipSender
+    :members:
+
+.. autoclass:: StateTipReader
+    :members:
+
+.. autoexception:: StateTipException
+
+.. autoexception:: AddressError
+
+.. autoexception:: NetworkError
+
+.. autoexception:: Timeout
+
 '''
 
 import socket
@@ -13,21 +28,41 @@ __VERSION__ = "0.0.0"
 #-----------------------------------------------------------------------------
 
 class StateTipException(Exception):
+    '''
+    A base class for exceptions.
+    '''
     pass
 
 class AddressError(StateTipException):
+    '''
+    StateTip address (host or port) invalid exception.
+    '''
     pass
 
 class NetworkError(StateTipException):
+    '''
+    Network error exception.
+    '''
     pass
 
 class Timeout(StateTipException):
+    '''
+    Request timeout exception.
+    '''
     pass
 
 #-----------------------------------------------------------------------------
 
 class StateTipSender:
+    '''
+    Sender client class.
+    '''
     def __init__(self, host = 'localhost', port = 3012):
+        '''
+        :param host: address of StateTip instance to send events to
+        :param port: sender port of StateTip instance
+        :throws: :exc:`NetworkError`
+        '''
         self.host = host
         self.port = port
         try:
@@ -39,7 +74,38 @@ class StateTipSender:
     def send(self, name, origin, key, related = False,
              state = None, severity = None, info = None, sort_key = None,
              created = None, expiry = None):
-        # XXX: can raise NetworkError or ValueError
+        '''
+        :param name: value group name
+        :type name: string
+        :param origin: value group's origin
+        :type origin: string or ``None``
+        :param key: value's key
+        :type key: string
+        :param sort_key: key to sort values with when reading
+        :type sort_key: string or ``None``
+        :param related: value group type, i.e. if it's a group of related or
+            unrelated values
+        :type related: boolean
+        :param state: state to store in this value
+        :type state: string or ``None``
+        :param severity: severity of the state
+        :type severity: ``"expected"``, ``"warning"``, or ``"error"``
+        :param info: additional data to store in this value
+        :type info: JSON-serializable object
+        :param created: timestamp (unix) of collection of this value
+        :type created: integer or float
+        :param expiry: when this value expires after its collection
+        :type expiry: integer (seconds)
+        :throws: :exc:`NetworkError`, :exc:`ValueError`
+
+        Send an event to StateTip.
+
+        If any of the fields is not serializable, :exc:`ValueError` exception
+        is raised. Network errors are signaled by throwing
+        :exc:`NetworkError`.
+
+        See :doc:`glossary` for exact meaning of any of the above terms.
+        '''
         event = {
             "name": name,
             "origin": origin,
@@ -67,13 +133,35 @@ class StateTipSender:
 #-----------------------------------------------------------------------------
 
 class StateTipReader:
+    '''
+    Reader client class.
+    '''
     def __init__(self, host = 'localhost', port = 3082, timeout = None):
+        '''
+        :param host: address of StateTip instance to send events to
+        :param port: sender port of StateTip instance
+        :param timeout: request timeout for reading data
+        '''
         self.host = host
         self.port = port
         self.timeout = timeout
 
     def _json_request(self, path_format, *args):
-        # XXX: can raise AddressError, NetworkError, Timeout, or ValueError
+        '''
+        :param path_format: format string for path portion of HTTP URL; should
+            start with ``"/"``
+        :param *args: arguments for :obj:`path_format`
+        :returns: dictionary or list with deserialized reply
+        :throws: :exc:`AddressError`, :exc:`NetworkError`, :exc:`Timeout`
+
+        Send a HTTP request to StateTip, receive reply, and deserialize it.
+
+        Throws :exc:`AddressError` when either host or port specified in
+        constructor is of invalid format, :exc:`NetworkError` in the case of
+        network/protocol errors (e.g. the remote host couldn't be reached, the
+        connection was reset, or server's reply was invalid), or
+        :exc:`Timeout` when the request timed out.
+        '''
         request = urllib2.Request(
             ("http://%s:%s" + path_format) % ((self.host, self.port) + args),
             headers = {
@@ -107,9 +195,27 @@ class StateTipReader:
             raise ValueError("invalid value group origin")
 
     def names(self):
+        '''
+        :returns: list of names (strings)
+        :throws: :exc:`AddressError`, :exc:`NetworkError`, :exc:`Timeout`
+
+        List the names of recorded value groups.
+        '''
         return self._json_request("/json")
 
     def origins(self, name):
+        '''
+        :param name: value group name
+        :type name: string
+        :returns: list of origins (strings, with one entry possibly being
+            ``None``)
+        :throws: :exc:`AddressError`, :exc:`NetworkError`, :exc:`Timeout`,
+            :exc:`ValueError`
+
+        List origins for a specific value group.
+
+        Invalid group name results in :exc:`ValueError`.
+        '''
         StateTipReader._check_name_origin(name)
 
         return [
@@ -118,6 +224,19 @@ class StateTipReader:
         ]
 
     def keys(self, name, origin):
+        '''
+        :param name: value group name
+        :type name: string
+        :param origin: value group's origin
+        :type origin: string or ``None``
+        :returns: list of keys (strings)
+        :throws: :exc:`AddressError`, :exc:`NetworkError`, :exc:`Timeout`,
+            :exc:`ValueError`
+
+        List keys for a specific origin in a value group.
+
+        Invalid group name or origin results in :exc:`ValueError`.
+        '''
         StateTipReader._check_name_origin(name)
 
         if origin is None:
@@ -126,6 +245,21 @@ class StateTipReader:
         return self._json_request("/json/%s/%s", name, origin)
 
     def values(self, name, origin):
+        '''
+        :param name: value group name
+        :type name: string
+        :param origin: value group's origin
+        :type origin: string or ``None``
+        :returns: list of dictionaries, each of the same format as
+            :meth:`get()`
+        :throws: :exc:`AddressError`, :exc:`NetworkError`, :exc:`Timeout`,
+            :exc:`ValueError`
+
+        List all values (including key, state, severity, and info fields) of
+        a specific origin in a value group.
+
+        Invalid group name or origin results in :exc:`ValueError`.
+        '''
         StateTipReader._check_name_origin(name)
 
         if origin is None:
@@ -134,6 +268,36 @@ class StateTipReader:
         return self._json_request("/json-all/%s/%s", name, origin)
 
     def get(self, name, origin, key):
+        '''
+        :param name: value group name
+        :type name: string
+        :param origin: value group's origin
+        :type origin: string or ``None``
+        :param key: value's key
+        :type key: string
+        :return: dictionary
+        :throws: :exc:`AddressError`, :exc:`NetworkError`, :exc:`Timeout`,
+            :exc:`ValueError`
+
+        Retrieve a specific value. Returned value will similar to the
+        following dictionary:
+
+        .. code-block:: python
+
+            {"name": "cpus", "origin": "web01", "key": "cpu0",
+                "state": None, "severity": "expected", "info": None}
+
+        The returned dictionary is guaranteed to have following fields:
+
+        * ``"name"`` -- value group's name (string)
+        * ``"origin"`` -- value group's origin (string or ``None``)
+        * ``"key"`` -- value's key (string)
+        * ``"state"`` -- state recorded in the value (string or ``None``)
+        * ``"severity"`` -- state severity (``"expected"``, ``"warning"``, or ``"error"``)
+        * ``"info"`` -- additional information recorded in the value
+
+        Invalid group name or origin results in :exc:`ValueError`.
+        '''
         StateTipReader._check_name_origin(name)
 
         if origin is None:

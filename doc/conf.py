@@ -31,6 +31,9 @@ sys.path.insert(0, os.path.abspath("../pylib"))
 # ignored prefixes for module index sorting
 #modindex_common_prefix = []
 
+# documentation for constructors: docstring from class, constructor, or both
+autoclass_content = 'both'
+
 #-----------------------------------------------------------------------------
 # HTML output
 #-----------------------------------------------------------------------------
