@@ -96,15 +96,15 @@ class StateTipReader:
         except ValueError, e:
             # json module's error description is just as undescriptive, but
             # doesn't tell that it's server's fault
-            raise ValueError("invalid server reply")
+            raise NetworkError("invalid server reply")
 
     @staticmethod
     def _check_name_origin(name, origin = None):
         # incidentally, origin can also be `None'
         if "/" in name or " " in name:
-            raise Exception() # TODO: be more descriptive
+            raise ValueError("invalid value group name")
         if origin is not None and ("/" in origin or " " in origin):
-            raise Exception() # TODO: be more descriptive
+            raise ValueError("invalid value group origin")
 
     def names(self):
         return self._json_request("/json")
