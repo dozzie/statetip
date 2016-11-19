@@ -9,6 +9,8 @@ Table of contents
    :maxdepth: 2
 
    manpages/index
+   python-api
+   manpages/statetip-protocol
    glossary
 
 

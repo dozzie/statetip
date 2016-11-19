@@ -260,22 +260,10 @@ Example:
 
 .. describe:: log_file
 
-Client protocols
-================
-
-Sender protocol
----------------
-
-.. include:: protocol_sender.rst.common
-
-Reader protocol
----------------
-
-.. include:: protocol_reader.rst.common
-
 See Also
 ========
 
 * :manpage:`statetip(1)`
+* :manpage:`statetip-protocol(7)`
 * :manpage:`start-stop-daemon(8)`
 * Seismometer <http://seismometer.net/>

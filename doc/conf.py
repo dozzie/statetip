@@ -25,6 +25,9 @@ exclude_trees = ['html', 'man']
 # configuration specific to Python code
 #-----------------------------------------------------------------------------
 
+import sys, os
+sys.path.insert(0, os.path.abspath("../pylib"))
+
 # ignored prefixes for module index sorting
 #modindex_common_prefix = []
 
@@ -54,6 +57,8 @@ man_pages = [
      [], 1),
     ('manpages/statetipd', 'statetipd', u'StateTip daemon',
      [], 8),
+    ('manpages/statetip-protocol', 'statetip-protocol', u'StateTip protocol',
+     [], 7),
 ]
 
 #man_show_urls = False

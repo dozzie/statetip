@@ -72,13 +72,12 @@ Severities: ``expected``, ``warning``, ``error``.
 Neither group name nor group origin should contain slash. Key can contain
 slashes.
 
-Sender client protocol
-----------------------
-
-.. include:: protocol_sender.rst.common
+For more sophisticated uses, see :manpage:`statetip-protocol(7)` and/or
+:doc:`Python API <../python-api>`.
 
 See Also
 ========
 
 * :manpage:`statetipd(8)`
+* :manpage:`statetip-protocol(7)`
 * Seismometer <http://seismometer.net/>
