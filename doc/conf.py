@@ -56,11 +56,12 @@ pygments_style = 'sphinx'
 #-----------------------------------------------------------------------------
 
 man_pages = [
-    ('manpages/statetip', 'statetip', u'StateTip client',
+    ('manpages/statetip', 'statetip', 'StateTip client',
      [], 1),
-    ('manpages/statetipd', 'statetipd', u'StateTip daemon',
+    ('manpages/statetipd', 'statetipd', 'StateTip daemon',
      [], 8),
-    ('manpages/statetip-protocol', 'statetip-protocol', u'StateTip protocol',
+    ('manpages/protocols', 'statetip-protocol',
+     'StateTip communication protocol',
      [], 7),
 ]
 

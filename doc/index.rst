@@ -10,7 +10,7 @@ Table of contents
 
    manpages/index
    python-api
-   manpages/statetip-protocol
+   manpages/protocols
    glossary
 
 
