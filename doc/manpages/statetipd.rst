@@ -25,15 +25,26 @@ Synopsis
 Description
 ===========
 
-:program:`statetipd` is a helper service for monitoring systems, especially
-for building dashboards. :program:`statetipd` remembers the last values of
-events sent to it and can serve as an inventory of sorts. For example,
-a sysadmin may collect status of servers (e.g. "up" or "down") in his
-network. :program:`statetipd` allows to list all the servers that status was
-collected for, and then for each server display its status and/or some graphs.
+:program:`statetipd` is a service to help build monitoring systems, especially
+for dashboards. :program:`statetipd` remembers the last values of events sent
+to it and can serve as an inventory of sorts. For example, a sysadmin may
+collect status of servers (e.g. "up" or "down") in his network.
+:program:`statetipd` allows to list all the servers that status was collected
+for, and then for each server display its status and/or some graphs.
 
 Usage
 =====
+
+To receive values and list them :program:`statetipd` uses a protocol defined
+in :manpage:`statetip-protocol(7)`. :doc:`Python module <../python-api>` that
+already implements the protocol is provided, as well as a command line tool
+:manpage:`statetip(1)`. :manpage:`statetip(1)` is intended mainly for manual
+data inspection and for writing small pipelines to feed :program:`statetipd`
+with data, so it's not as flexible as Python API, but should be enough for
+most use cases.
+
+To run and control the :program:`statetipd` daemon, there are several commands
+that are described below.
 
 Commands
 --------
@@ -194,9 +205,11 @@ Options
 Configuration
 =============
 
-TOML
+Config file for :program:`statetipd` is a TOML file. It specifies where
+:program:`statetipd` listens for clients (e.g. :manpage:`statetip(1)`), where
+state log is saved, and how to configure Erlang networking for debugging.
 
-Example:
+Configuration file could look like this:
 
 .. code-block:: ini
 
@@ -224,41 +237,110 @@ Example:
 ``[events]``
 ------------
 
-.. describe:: listen
+Section relevant to sender clients, which send values.
 
-.. describe:: default_expiry
+.. describe:: listen = "<address>:<port>"
+
+    Option to set where to listen for sender clients. If *<address>* is
+    specified as ``*``, :program:`statetipd` accepts connections on any
+    address.
+
+    Default value is ``"localhost:3012"``.
+
+.. describe:: default_expiry = <seconds>
+
+    Expiry age that will be set for values that didn't provide one.
+
+    Default value is 43200 (12 hours).
 
 ``[http]``
 ----------
 
-.. describe:: listen
+Section relevant to reader clients.
+
+.. describe:: listen = "<address>:<port>"
+
+    Option to set where to listen for reader clients. If *<address>* is
+    specified as ``*``, :program:`statetipd` accepts connections on any
+    address.
+
+    Default value is ``"localhost:3082"``.
 
 ``[store]``
 -----------
 
-.. describe:: directory
+Section for state logging. State log is a file that records all the changes to
+the value groups.
 
-.. describe:: compaction_size
+If no state logging is configured, :program:`statetipd` looses all the
+received values (until they are sent again). Typically this shouldn't be
+a problem, as monitoring usually sends updates in intervals counted in
+minutes, but for the cases when a value is collected rarely, state log comes
+handy.
+
+*NOTE*: It is always safe to delete contents of ``store.directory`` when
+:program:`statetipd` is shut down.
+
+.. describe:: directory = "<path>"
+
+    Directory to store state log. If set, then changes in all value groups
+    will be recorded and restored on daemon start.
+
+    If the option is not set, no state log is written and all values are lost
+    on restart.
+
+.. describe:: compaction_size = <bytes>
+
+    A size limit for state log, after which the log is compacted (old entries
+    are removed and a new log file that only contains fresh entries is written
+    in its place).
+
+    Default value is 10485760 (10 MB).
 
 ``[logging]``
 -------------
 
-.. describe:: handlers
+.. describe:: handlers = ["<handler>", ...]
+
+    List of destinations for :program:`statetipd`'s internal logging.
+    Currently supported values are ``"statip_syslog_h"`` and
+    ``"statip_stdout_h"``.
+
+    Default is ``[]`` (no logging).
 
 .. _statetipd-erlang:
 
 ``[erlang]``
 ------------
 
-.. describe:: node_name
+Section to configure Erlang VM running :program:`statetipd` as distributed
+node. This exposes a channel for debugging StateTip.
 
-.. describe:: name_type
+.. describe:: node_name = "<node>"
 
-.. describe:: cookie_file
+    Node name for Erlang VM running :program:`statetipd`.
 
-.. describe:: distributed_immediate
+.. describe:: name_type = "shortnames" | "longnames"
 
-.. describe:: log_file
+    Type of names for distributed Erlang. Either ``"shortnames"`` or
+    ``"longnames"``.
+
+.. describe:: cookie_file = "<path>"
+
+    Path to a file that contains cookie for distributed Erlang. If not
+    specified, Erlang's default procedure for setting cookie takes place.
+
+.. describe:: distributed_immediate = true | false
+
+    Whether to start Erlang networking immediately or wait until an
+    appropriate command (``statetipd dist-erl-start``) is issued.
+
+    Default is ``false``.
+
+.. describe:: log_file = "<path>"
+
+    File to write Erlang's internal messages to (:manpage:`error_logger(3)`).
+    Default is not set.
 
 See Also
 ========
