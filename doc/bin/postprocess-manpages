@@ -19,9 +19,20 @@ fix_manpage_references() {
   sed 's/\\fI\([^ ]*\)\(([1-8])\)\\fP/\\fI\1\\fR\\|\2/g'
 }
 
+fix_double_quotes_listing() {
+  # double quotes in .TP<nl>.B -> \(dq
+  awk '
+    $1 == ".TP" { list = 1 }
+    $1 == ".B" && list { gsub(/"/, "\\(dq") }
+    $1 != ".TP" { list = 0 }
+    {print}
+  '
+}
+
 for FILE in "$@"; do
   cat "$FILE" | \
     indent_code_blocks | \
-    fix_manpage_references > "$FILE.tmp"
+    fix_manpage_references | \
+    fix_double_quotes_listing > "$FILE.tmp"
   mv -- "$FILE.tmp" "$FILE"
 done
