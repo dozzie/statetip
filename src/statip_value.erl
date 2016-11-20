@@ -106,16 +106,9 @@ delete(GroupName) ->
   ok.
 
 delete(GroupName, GroupOrigin) ->
-  case get_keeper(GroupName, GroupOrigin) of
-    {Pid, Module} ->
-      try
-        Module:shutdown(Pid)
-      catch
-        exit:{noproc, {gen_server, call, _Args}} -> ok
-      end;
-    none ->
-      ok
-  end.
+  for_keeper(GroupName, GroupOrigin,
+             fun(Pid, Module) -> Module:shutdown(Pid) end),
+  ok.
 
 %% @doc Delete a value.
 
@@ -123,16 +116,9 @@ delete(GroupName, GroupOrigin) ->
   ok.
 
 delete(GroupName, GroupOrigin, Key) ->
-  case get_keeper(GroupName, GroupOrigin) of
-    {Pid, Module} ->
-      try
-        Module:delete(Pid, Key)
-      catch
-        exit:{noproc, {gen_server, call, _Args}} -> ok
-      end;
-    none ->
-      ok
-  end.
+  for_keeper(GroupName, GroupOrigin,
+             fun(Pid, Module) -> Module:delete(Pid, Key) end),
+  ok.
 
 %% @doc List names of value groups.
 
@@ -156,15 +142,10 @@ list_origins(GroupName) ->
   [key()].
 
 list_keys(GroupName, GroupOrigin) ->
-  case get_keeper(GroupName, GroupOrigin) of
-    {Pid, Module} ->
-      try
-        Module:list_keys(Pid)
-      catch
-        exit:{noproc, {gen_server, call, _Args}} -> []
-      end;
-    none ->
-      []
+  ListKeysFun = fun(Pid, Module) -> Module:list_keys(Pid) end,
+  case for_keeper(GroupName, GroupOrigin, ListKeysFun) of
+    Result when is_list(Result) -> Result;
+    none -> []
   end.
 
 %% @doc List the values from specific origin in a value group.
@@ -173,16 +154,8 @@ list_keys(GroupName, GroupOrigin) ->
   [#value{}] | none.
 
 list_values(GroupName, GroupOrigin) ->
-  case get_keeper(GroupName, GroupOrigin) of
-    {Pid, Module} ->
-      try
-        Module:list_values(Pid)
-      catch
-        exit:{noproc, {gen_server, call, _Args}} -> none
-      end;
-    none ->
-      none
-  end.
+  for_keeper(GroupName, GroupOrigin,
+             fun(Pid, Module) -> Module:list_values(Pid) end).
 
 %% @doc Get a specific value.
 
@@ -190,30 +163,37 @@ list_values(GroupName, GroupOrigin) ->
   #value{} | none.
 
 get_value(GroupName, GroupOrigin, Key) ->
-  case get_keeper(GroupName, GroupOrigin) of
+  for_keeper(GroupName, GroupOrigin,
+             fun(Pid, Module) -> Module:get_value(Pid, Key) end).
+
+%%----------------------------------------------------------
+%% helpers
+%%----------------------------------------------------------
+
+%% @doc Run an operation for a keeper process.
+%%
+%%   `Operation' receives a pid of a keeper and its communication module as
+%%   its arguments.
+%%
+%%   If no keeper process was found, `Operation' is not called and `none' is
+%%   returned. If an error from {@link gen_server:call/2} is detected (namely,
+%%   `noproc' error), `none' is returned as well. If `Operation' returned
+%%   successfully, its return value is returned.
+
+-spec for_keeper(name(), origin(), fun((pid(), module()) -> Result)) ->
+  Result | none.
+
+for_keeper(GroupName, GroupOrigin, Operation) ->
+  case statip_registry:find_process(GroupName, GroupOrigin) of
     {Pid, Module} ->
       try
-        Module:get_value(Pid, Key)
+        Operation(Pid, Module)
       catch
         exit:{noproc, {gen_server, call, _Args}} -> none
       end;
     none ->
       none
   end.
-
-%%----------------------------------------------------------
-%% helpers
-%%----------------------------------------------------------
-
-%% @doc Get a keeper process and its communication module.
-%%
-%%   This function does not start a new process.
-
--spec get_keeper(name(), origin()) ->
-  {pid(), module()} | none.
-
-get_keeper(GroupName, GroupOrigin) ->
-  statip_registry:find_process(GroupName, GroupOrigin).
 
 %% @doc Get a keeper process (possibly starting it) and its communication
 %%   module.
@@ -232,22 +212,21 @@ get_keeper(GroupName, GroupOrigin) ->
   {pid(), module()} | none.
 
 get_keeper(GroupName, GroupOrigin, GroupType) ->
-  case statip_registry:find_process(GroupName, GroupOrigin) of
-    {Pid, statip_keeper_related = Module} when GroupType == related ->
+  case try_get_keeper(GroupName, GroupOrigin, GroupType) of
+    {Pid, Module} ->
       {Pid, Module};
-    {Pid, statip_keeper_unrelated = Module} when GroupType == unrelated ->
-      {Pid, Module};
-    {_Pid, _Module} ->
-      % mismatched incoming value type and registered value type
+    mismatch ->
       none;
     none ->
       case start_keeper(GroupName, GroupOrigin, GroupType) of
         {Pid, Module} ->
           {Pid, Module};
         none ->
-          case statip_registry:find_process(GroupName, GroupOrigin) of
+          case try_get_keeper(GroupName, GroupOrigin, GroupType) of
             {Pid, Module} ->
               {Pid, Module};
+            mismatch ->
+              none;
             none ->
               statip_log:warn(value,
                 "couldn't start a value group keeper: race condition occurred",
@@ -256,6 +235,22 @@ get_keeper(GroupName, GroupOrigin, GroupType) ->
               none
           end
       end
+  end.
+
+-spec try_get_keeper(name(), origin(), related | unrelated) ->
+  {pid(), module()} | mismatch | none.
+
+try_get_keeper(GroupName, GroupOrigin, GroupType) ->
+  case statip_registry:find_process(GroupName, GroupOrigin) of
+    {Pid, statip_keeper_related = Module} when GroupType == related ->
+      {Pid, Module};
+    {Pid, statip_keeper_unrelated = Module} when GroupType == unrelated ->
+      {Pid, Module};
+    {_Pid, _Module} ->
+      % incoming value type and registered value type don't match
+      mismatch;
+    none ->
+      none
   end.
 
 log_context(GroupName, GroupOrigin, GroupType) when is_binary(GroupOrigin) ->
