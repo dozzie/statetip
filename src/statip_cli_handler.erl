@@ -235,10 +235,10 @@ handle_reply(Reply, status = Command, _Options) ->
   % `status' and `status_wait' have the same `Command' and replies
   case ?ADMIN_COMMAND_MODULE:parse_reply(Reply, Command) of
     running ->
-      io:fwrite("statetipd is running~n"),
+      println("statetipd is running"),
       ok;
     stopped ->
-      io:fwrite("statetipd is stopped~n"),
+      println("statetipd is stopped"),
       {error, 1};
     % for future changes in status detection
     Status ->
@@ -248,7 +248,7 @@ handle_reply(Reply, status = Command, _Options) ->
 handle_reply(Reply, stop = Command, _Options = #opts{options = CLIOpts}) ->
   PrintPid = proplists:get_bool(print_pid, CLIOpts),
   case ?ADMIN_COMMAND_MODULE:parse_reply(Reply, Command) of
-    {ok, Pid} when PrintPid -> io:fwrite("~s~n", [Pid]), ok;
+    {ok, Pid} when PrintPid -> println(Pid), ok;
     {ok, _Pid} when not PrintPid -> ok;
     ok -> ok;
     {error, Reason} -> {error, Reason}
@@ -648,6 +648,18 @@ cli_opt(Arg, Opts = #opts{op = undefined}) ->
     "log-compact"  -> Opts#opts{op = log_compact};
     _ -> {error, bad_command}
   end.
+
+%% }}}
+%%----------------------------------------------------------
+%% printing lines {{{
+
+%% @doc Print a string to STDOUT, ending it with a new line.
+
+-spec println(iolist() | binary()) ->
+  ok.
+
+println(Line) ->
+  io:put_chars([Line, $\n]).
 
 %% }}}
 %%----------------------------------------------------------
