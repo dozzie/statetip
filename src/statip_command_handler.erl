@@ -103,12 +103,15 @@ handle_command([{<<"command">>, <<"list">>}, {<<"query">>, Query}] = _Command,
 handle_command([{<<"command">>,<<"delete">>}, {<<"query">>,Query}] = _Command,
                _Args) ->
   case Query of
-    [{<<"name">>, _Name}] ->
-      [{result, todo}];
-    [{<<"name">>, _Name}, {<<"origin">>, _Origin}] ->
-      [{result, todo}];
-    [{<<"key">>, _Key}, {<<"name">>, _Name}, {<<"origin">>, _Origin}] ->
-      [{result, todo}]
+    [{<<"name">>, Name}] ->
+      statip_value:delete(Name),
+      [{result, ok}];
+    [{<<"name">>, Name}, {<<"origin">>, Origin}] ->
+      statip_value:delete(Name, Origin),
+      [{result, ok}];
+    [{<<"key">>, Key}, {<<"name">>, Name}, {<<"origin">>, Origin}] ->
+      statip_value:delete(Name, Origin, Key),
+      [{result, ok}]
   end;
 
 handle_command(_Command, _Args) ->
