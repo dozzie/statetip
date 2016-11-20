@@ -126,7 +126,7 @@ handle_info({tcp, Socket, Line} = _Request,
       {noreply, State};
     {error, not_json} ->
       % stop when non-JSON
-      statip_log:warn("malformed message", []),
+      statip_log:warn("malformed message"),
       {stop, normal, State}
   end;
 

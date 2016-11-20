@@ -133,7 +133,7 @@ init([] = _Args) ->
       statip_log:append_context([{log_dir, {str, LogDir}}]),
       case prepare_logfile(LogDir) of
         {ok, Entries} ->
-          statip_log:info("starting state logger", []),
+          statip_log:info("starting state logger"),
           ok = dump_logfile(Entries, LogDir), % TODO: error handling
           ok = start_keepers(Entries),
           erlang:send_after(?COMPACT_DECISION_INTERVAL, self(), check_log_size),
@@ -492,10 +492,10 @@ compact(LogFile, ResultTo, Ref, {LogType, LogContext}) ->
   statip_log:append_context([{log_file, LogFile}]),
   case statip_flog:open(LogFile, [read]) of
     {ok, Handle} ->
-      statip_log:info("starting replaying events", []),
+      statip_log:info("starting replaying events"),
       case statip_flog:replay(Handle, ?READ_BLOCK, ?READ_RETRIES) of
         {ok, Records} ->
-          statip_log:info("synchronizing with logger", []),
+          statip_log:info("synchronizing with logger"),
           ResultTo ! {compaction_finished, Ref, sync},
           receive
             {sync, Ref} ->
@@ -503,7 +503,7 @@ compact(LogFile, ResultTo, Ref, {LogType, LogContext}) ->
                                           Records),
               case Result of
                 {ok, _} ->
-                  statip_log:info("log replay complete", []);
+                  statip_log:info("log replay complete");
                 {error, Reason} ->
                   statip_log:warn("log replay failed", [
                     {error, {term, Reason}}
