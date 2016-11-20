@@ -584,8 +584,6 @@ when not is_binary(Name);
      Origin /= undefined, not is_binary(Origin);
      GroupType /= related, GroupType /= unrelated ->
   {error, badarg};
-encode_log_record(_Name, _Origin, {clear, _Key} = _Entry, related = _GroupType) ->
-  {error, badarg}; % operation not expected for "related" values
 encode_log_record(Name, Origin, clear = _Entry, _GroupType) ->
   Payload = [?TYPE_CLEAR, store(Name), store(Origin)],
   {ok, Payload};
@@ -720,8 +718,24 @@ replay_add_entry({clear, Name, Origin, Key} = _Entry, State) ->
           NewValue = {unrelated, NewKeyMap},
           _NewState = gb_trees:enter({Name, Origin}, NewValue, State)
       end;
-    {value, {related, _KeyMap, _OldKeyMap}} ->
-      State; % operation not expected for group of related values
+    {value, {related, KeyMap, OldKeyMap}} ->
+      % this is not an occurrence that happens naturally, but operator could
+      % have requested a specific value be removed
+      NewKeyMap = gb_trees:delete_any(Key, KeyMap),
+      NewOldKeyMap = gb_trees:delete_any(Key, OldKeyMap),
+      case {gb_trees:is_empty(NewKeyMap), gb_trees:is_empty(NewOldKeyMap)} of
+        {true, true} ->
+          _NewState = gb_trees:delete({Name, Origin}, State);
+        {true, false} ->
+          NewValue = {related, none, NewOldKeyMap},
+          _NewState = gb_trees:enter({Name, Origin}, NewValue, State);
+        {false, true} ->
+          NewValue = {related, NewKeyMap, none},
+          _NewState = gb_trees:enter({Name, Origin}, NewValue, State);
+        {false, false} ->
+          NewValue = {related, NewKeyMap, NewOldKeyMap},
+          _NewState = gb_trees:enter({Name, Origin}, NewValue, State)
+      end;
     none ->
       State
   end;

@@ -201,6 +201,16 @@ handle_cast({add, Value = #value{}} = _Request,
   statip_state_log:set(GroupName, GroupOrigin, related, Value),
   {noreply, NewState, 1000};
 
+handle_cast({delete, Key} = _Request,
+            State = #state{group_name = GroupName,
+                           group_origin = GroupOrigin}) ->
+  NewState = delete_value(Key, State),
+  statip_state_log:clear(GroupName, GroupOrigin, Key),
+  {noreply, NewState, 1000};
+
+handle_cast(shutdown = _Request, State) ->
+  {stop, normal, State};
+
 %% unknown casts
 handle_cast(_Request, State) ->
   {noreply, State, 1000}.
@@ -279,6 +289,17 @@ add_value(Value = #value{key = Key, expires = NewExpiryTime},
           NewState
       end
   end.
+
+delete_value(Key, State = #state{current_entries = CurEntries,
+                                 previous_entries = OldEntries}) ->
+  % NOTE: this keeps the old expiry time even if it got lower after deleting
+  % the key
+  NewCurEntries = gb_trees:delete_any(Key, CurEntries),
+  NewOldEntries = gb_trees:delete_any(Key, OldEntries),
+  _NewState = State#state{
+    current_entries = NewCurEntries,
+    previous_entries = NewOldEntries
+  }.
 
 get_value(Key, CurEntries, OldEntries) ->
   case gb_trees:lookup(Key, CurEntries) of
