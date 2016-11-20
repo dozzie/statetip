@@ -281,12 +281,18 @@ handle_info({compaction_finished, Ref, Result} = _Message,
                            log_dir = LogDir, log_handle = LogH}) ->
   case finish_compaction(Result, CompactHandle) of
     {ok, Records} ->
+      {ok, OldSize} = statip_flog:file_size(LogH),
       ok = dump_logfile(Records, LogDir), % TODO: error handling
       statip_flog:close(LogH),
       % XXX: `dump_logfile()' has just succeeded, so another `open()' should
       % work as well
       LogFile = filename:join(LogDir, ?LOG_FILE),
       {ok, NewLogH} = statip_flog:open(LogFile, [write]),
+      {ok, NewSize} = statip_flog:file_size(NewLogH),
+      statip_log:info("log compacted", [
+        {old_size, OldSize},
+        {new_size, NewSize}
+      ]),
       NewState = State#state{
         compaction = undefined,
         log_handle = NewLogH
@@ -496,18 +502,28 @@ compact(LogFile, ResultTo, Ref, {LogType, LogContext}) ->
   statip_log:append_context([{log_file, LogFile}]),
   case statip_flog:open(LogFile, [read]) of
     {ok, Handle} ->
+      TimeStart = wall_clock(),
       statip_log:info("starting replaying events"),
       case statip_flog:replay(Handle, ?READ_BLOCK, ?READ_RETRIES) of
         {ok, Records} ->
+          TimeSync = wall_clock(),
           statip_log:info("synchronizing with logger"),
           ResultTo ! {compaction_finished, Ref, sync},
           receive
             {sync, Ref} ->
+              TimeCont = wall_clock(),
               Result = statip_flog:replay(Handle, ?READ_BLOCK, ?READ_RETRIES,
                                           Records),
               case Result of
                 {ok, _} ->
-                  statip_log:info("log replay complete");
+                  TimeEnd = wall_clock(),
+                  TotalTime = TimeEnd - TimeStart,
+                  SyncDelay = TimeCont - TimeSync,
+                  statip_log:info("log replay complete", [
+                    {compaction_time, TotalTime},
+                    {sync_delay, SyncDelay},
+                    {time_unit, <<"milliseconds">>}
+                  ]);
                 {error, Reason} ->
                   statip_log:warn("log replay failed", [
                     {error, {term, Reason}}
@@ -583,6 +599,37 @@ abort_compaction({compact, _Ref, Pid} = _CompactHandle) ->
   unlink(Pid),
   exit(Pid, shutdown),
   ok.
+
+%% @doc Read wall clock time, in milliseconds.
+%%
+%%   This function is intended for calculating how much time it took to
+%%   compact the state log. It takes into an account possible clock wrap
+%%   on 32-bit machines.
+%%
+%%   The function should never be used in processes with life span counted in
+%%   days.
+
+-spec wall_clock() ->
+  non_neg_integer().
+
+wall_clock() ->
+  {TotalTime, _SinceLastCall} = erlang:statistics(wall_clock),
+  % XXX: using process dictionary (especially this way) is cheating, but this
+  % function will only be used by relatively short-lived compaction process,
+  % which certainly shouldn't take *days* to complete
+  case get('$wall_clock') of
+    undefined ->
+      put('$wall_clock', {TotalTime, 0}),
+      TotalTime;
+    {OldTime, Correction} when TotalTime >= OldTime ->
+      put('$wall_clock', {TotalTime, Correction}),
+      TotalTime + Correction;
+    {OldTime, Correction} when TotalTime < OldTime ->
+      % wall clock is a number of milliseconds stored as an integer of
+      % machine's native size, so on 32-bit machine, it wraps every 49.7 days
+      put('$wall_clock', {TotalTime, Correction + (1 bsl 32)}),
+      TotalTime + Correction + (1 bsl 32)
+  end.
 
 %%%---------------------------------------------------------------------------
 %%% vim:ft=erlang:foldmethod=marker
