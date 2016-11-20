@@ -7,7 +7,7 @@
 -module(statip_pqueue).
 
 %% public interface
--export([new/0, add/3, peek/1, pop/1, update/4]).
+-export([new/0, add/3, delete/3, peek/1, pop/1, update/4]).
 
 -export_type([priority/0, entry/0, pqueue/0]).
 
@@ -48,6 +48,17 @@ new() ->
 add(Entry, Priority, _Queue = #pqueue{mapping = Mapping}) ->
   Node = {Priority, Entry},
   NewMapping = gb_sets:add(Node, Mapping),
+  NewLowest = gb_sets:smallest(NewMapping),
+  _NewQueue = #pqueue{lowest = NewLowest, mapping = NewMapping}.
+
+%% @doc Remove an entry from a priority queue.
+
+-spec delete(entry(), priority(), pqueue()) ->
+  pqueue().
+
+delete(Entry, Priority, _Queue = #pqueue{mapping = Mapping}) ->
+  Node = {Priority, Entry},
+  NewMapping = gb_sets:delete_any(Node, Mapping),
   NewLowest = gb_sets:smallest(NewMapping),
   _NewQueue = #pqueue{lowest = NewLowest, mapping = NewMapping}.
 

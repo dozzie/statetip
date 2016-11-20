@@ -207,6 +207,28 @@ handle_cast({add, Value = #value{}} = _Request,
   },
   {noreply, NewState, 1000};
 
+handle_cast({delete, _Key} = _Request,
+            State = #state{entries = undefined, expiry = undefined}) ->
+  % XXX: make sure to keep undefined storage undefined, as it's an important
+  % distinction for periodical keys pruning
+  {noreply, State, 1000};
+
+handle_cast({delete, Key} = _Request,
+            State = #state{entries = Entries, expiry = ExpiryQ,
+                           group_name = GroupName,
+                           group_origin = GroupOrigin}) ->
+  statip_state_log:clear(GroupName, GroupOrigin, Key),
+  {NewEntries, NewExpiryQ} = store_delete(Key, Entries, ExpiryQ),
+  NewState = State#state{
+    entries = NewEntries,
+    expiry = NewExpiryQ
+  },
+  {noreply, NewState, 1000};
+
+handle_cast(shutdown = _Request, State) ->
+  % XXX: `{clear, GroupName, GroupOrigin}' will be sent by keepers registry
+  {stop, normal, State};
+
 %% unknown casts
 handle_cast(_Request, State) ->
   {noreply, State, 1000}.
@@ -274,6 +296,28 @@ store_add(Value = #value{key = Key, expires = Expires}, Entries, ExpiryQ) ->
   end,
   NewEntries = gb_trees:enter(Key, Value, Entries),
   {NewEntries, NewExpiryQ}.
+
+%% @doc Delete a value from value store and from expiry queue.
+
+-spec store_delete(statip_value:key(), gb_tree() | undefined,
+                   statip_pqueue:pqueue() | undefined) ->
+  {gb_tree(), statip_pqueue:pqueue()}.
+
+store_delete(Key, undefined = _Entries, ExpiryQ) ->
+  store_delete(Key, gb_trees:empty(), ExpiryQ);
+
+store_delete(Key, Entries, undefined = _ExpiryQ) ->
+  store_delete(Key, Entries, statip_pqueue:new());
+
+store_delete(Key, Entries, ExpiryQ) ->
+  case gb_trees:lookup(Key, Entries) of
+    {value, Value = #value{expires = Expires}} ->
+      NewExpiryQ = statip_pqueue:delete(Value, Expires, ExpiryQ),
+      NewEntries = gb_trees:delete(Key, Entries),
+      {NewEntries, NewExpiryQ};
+    none ->
+      {Entries, ExpiryQ}
+  end.
 
 %% @doc Remove expired values from value store and expiry queue.
 
