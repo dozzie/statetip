@@ -34,8 +34,10 @@
 -type config() :: [{config_key(), config_value() | config()}].
 
 -record(opts, {
-  op :: start | status | stop | reload_config | reopen_logs
-      | dist_start | dist_stop,
+  op :: start | status | stop | reload_config
+      | compact_statelog | reopen_logs
+      | dist_start | dist_stop
+      | list | delete,
   admin_socket :: file:filename(),
   options :: [{atom(), term()}],
   args :: [string()]
@@ -68,7 +70,15 @@ parse_arguments(Args, [DefAdminSocket, DefConfig] = _Defaults) ->
     {ok, _Options = #opts{op = undefined}} ->
       help;
 
-    {ok, _Options = #opts{args = [_|_]}} ->
+    {ok, _Options = #opts{op = list, args = [_,_,_,_|_]}} ->
+      {error, too_many_args};
+    {ok, _Options = #opts{op = delete, args = []}} ->
+      {error, too_little_args};
+    {ok, _Options = #opts{op = delete, args = [_,_,_,_|_]}} ->
+      {error, too_many_args};
+
+    {ok, _Options = #opts{op = Command, args = [_|_]}}
+    when Command /= list, Command /= delete ->
       {error, too_many_args};
 
     {ok, Options = #opts{op = Command, admin_socket = AdminSocket}} ->
@@ -167,6 +177,12 @@ format_request(status = _Command, _Options = #opts{options = CLIOpts}) ->
     false -> ?ADMIN_COMMAND_MODULE:format_request(status)
   end,
   {ok, Request};
+format_request(list = _Command, _Options = #opts{args = Args}) ->
+  Request = ?ADMIN_COMMAND_MODULE:format_request({list, Args}),
+  {ok, Request};
+format_request(delete = _Command, _Options = #opts{args = Args}) ->
+  Request = ?ADMIN_COMMAND_MODULE:format_request({delete, Args}),
+  {ok, Request};
 format_request(Command, _Options) ->
   Request = ?ADMIN_COMMAND_MODULE:format_request(Command),
   {ok, Request}.
@@ -195,6 +211,20 @@ handle_reply(Reply, stop = Command, _Options = #opts{options = CLIOpts}) ->
     {ok, _Pid} when not PrintPid -> ok;
     ok -> ok;
     {error, Reason} -> {error, Reason}
+  end;
+
+handle_reply(Reply, list = Command, _Options) ->
+  case ?ADMIN_COMMAND_MODULE:parse_reply(Reply, Command) of
+    {ok, names, _Names} ->
+      ok; % TODO
+    {ok, origins, _Origins} ->
+      ok; % TODO
+    {ok, keys, _Keys} ->
+      ok; % TODO
+    {ok, value, _Value} ->
+      ok; % TODO
+    {error, Reason} ->
+      {error, Reason}
   end;
 
 handle_reply(Reply, Command, _Options) ->
@@ -562,10 +592,13 @@ cli_opt(Arg, Opts = #opts{op = undefined}) ->
     "start"  -> Opts#opts{op = start};
     "status" -> Opts#opts{op = status};
     "stop"   -> Opts#opts{op = stop};
-    "reload-config"  -> Opts#opts{op = reload_config};
-    "reopen-logs"    -> Opts#opts{op = reopen_logs};
+    "reload-config" -> Opts#opts{op = reload_config};
+    "compact-statelog" -> Opts#opts{op = compact_statelog};
+    "reopen-logs"      -> Opts#opts{op = reopen_logs};
     "dist-erl-start" -> Opts#opts{op = dist_start};
     "dist-erl-stop"  -> Opts#opts{op = dist_stop};
+    "list"   -> Opts#opts{op = list};
+    "delete" -> Opts#opts{op = delete};
     _ -> {error, bad_command}
   end.
 

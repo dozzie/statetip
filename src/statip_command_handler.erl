@@ -41,6 +41,9 @@ handle_command([{<<"command">>, <<"stop">>}] = _Command, _Args) ->
 handle_command([{<<"command">>, <<"reload_config">>}] = _Command, _Args) ->
   [{result, todo}];
 
+handle_command([{<<"command">>, <<"compact_statelog">>}] = _Command, _Args) ->
+  [{result, todo}];
+
 handle_command([{<<"command">>, <<"reopen_logs">>}] = _Command, _Args) ->
   % the only log file that can possibly be opened is disk log for error_logger
   case application:get_env(statip, error_logger_file) of
@@ -77,6 +80,30 @@ handle_command([{<<"command">>, <<"dist_stop">>}] = _Command, _Args) ->
       [{result, error}, {message, <<"Erlang networking error">>}]
   end;
 
+handle_command([{<<"command">>, <<"list">>}, {<<"query">>, Query}] = _Command,
+               _Args) ->
+  % [{result, ok}, {names | origins | keys | value, Result}]
+  case Query of
+    [{}] ->
+      [{result, todo}];
+    [{<<"name">>, _Name}] ->
+      [{result, todo}];
+    [{<<"name">>, _Name}, {<<"origin">>, _Origin}] ->
+      [{result, todo}];
+    [{<<"key">>, _Key}, {<<"name">>, _Name}, {<<"origin">>, _Origin}] ->
+      [{result, todo}]
+  end;
+handle_command([{<<"command">>,<<"delete">>}, {<<"query">>,Query}] = _Command,
+               _Args) ->
+  case Query of
+    [{<<"name">>, _Name}] ->
+      [{result, todo}];
+    [{<<"name">>, _Name}, {<<"origin">>, _Origin}] ->
+      [{result, todo}];
+    [{<<"key">>, _Key}, {<<"name">>, _Name}, {<<"origin">>, _Origin}] ->
+      [{result, todo}]
+  end;
+
 handle_command(_Command, _Args) ->
   [{result, error}, {message, <<"unrecognized command">>}].
 
@@ -93,9 +120,40 @@ format_request(status        = Command) -> [{command, Command}, {wait, false}];
 format_request(status_wait   = Command) -> [{command, Command}, {wait, true}];
 format_request(stop          = Command) -> [{command, Command}];
 format_request(reload_config = Command) -> [{command, Command}];
+format_request(compact_statelog = Command) -> [{command, Command}];
 format_request(reopen_logs   = Command) -> [{command, Command}];
 format_request(dist_start    = Command) -> [{command, Command}];
-format_request(dist_stop     = Command) -> [{command, Command}].
+format_request(dist_stop     = Command) -> [{command, Command}];
+
+format_request({list, Args} = _Command) when is_list(Args) ->
+  [{command, list}, {<<"query">>, make_query(Args)}];
+format_request({delete, Args = [_|_]} = _Command) ->
+  [{command, delete}, {<<"query">>, make_query(Args)}].
+
+%%----------------------------------------------------------
+%% make_query() {{{
+
+make_query([]) ->
+  [{}];
+make_query([Name]) ->
+  [{name, list_to_binary(Name)}];
+make_query([Name, "" = _Origin]) ->
+  [{name, list_to_binary(Name)},
+    {origin, null}];
+make_query([Name, Origin]) ->
+  [{name, list_to_binary(Name)},
+    {origin, list_to_binary(Origin)}];
+make_query([Name, "" = _Origin, Key]) ->
+  [{name, list_to_binary(Name)},
+    {origin, null},
+    {key, list_to_binary(Key)}];
+make_query([Name, Origin, Key]) ->
+  [{name, list_to_binary(Name)},
+    {origin, list_to_binary(Origin)},
+    {key, list_to_binary(Key)}].
+
+%% }}}
+%%----------------------------------------------------------
 
 %% @doc Decode a reply to an administrative command.
 
@@ -119,6 +177,19 @@ parse_reply([{<<"result">>, <<"running">>}]  = _Reply, status = _Command) ->
   running;
 parse_reply([{<<"result">>, <<"stopped">>}]  = _Reply, status = _Command) ->
   stopped;
+
+parse_reply([{<<"names">>, Objects}, {<<"result">>, <<"ok">>}]  = _Reply,
+            list = _Command) ->
+  {ok, names, Objects};
+parse_reply([{<<"origins">>, Objects}, {<<"result">>, <<"ok">>}]  = _Reply,
+            list = _Command) ->
+  {ok, origins, Objects};
+parse_reply([{<<"keys">>, Objects}, {<<"result">>, <<"ok">>}]  = _Reply,
+            list = _Command) ->
+  {ok, keys, Objects};
+parse_reply([{<<"result">>, <<"ok">>}, {<<"value">>, Objects}]  = _Reply,
+            list = _Command) ->
+  {ok, value, Objects};
 
 %% unrecognized reply
 parse_reply(_Reply, _Command) ->
