@@ -108,13 +108,18 @@
 
 open(Filename, [read] = _Mode) ->
   case file:open(Filename, [read, raw, binary]) of
-    {ok, Handle}    -> {ok, {flog_read, Handle}};
-    {error, Reason} -> {error, Reason}
+    {ok, Handle} ->
+      {ok, {flog_read, Handle}};
+    {error, Reason} ->
+      {error, Reason}
   end;
 open(Filename, [write] = _Mode) ->
   case file:open(Filename, [append, raw]) of
-    {ok, Handle}    -> {ok, {flog_write, Handle}};
-    {error, Reason} -> {error, Reason}
+    {ok, Handle} ->
+      file:position(Handle, eof), % so the file_size() works on a fresh handle
+      {ok, {flog_write, Handle}};
+    {error, Reason} ->
+      {error, Reason}
   end.
 
 %% @doc Close a log file handle.
