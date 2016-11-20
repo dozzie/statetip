@@ -151,11 +151,14 @@ list_keys(GroupName, GroupOrigin) ->
 %% @doc List the values from specific origin in a value group.
 
 -spec list_values(name(), origin()) ->
-  [#value{}] | none.
+  [#value{}].
 
 list_values(GroupName, GroupOrigin) ->
-  for_keeper(GroupName, GroupOrigin,
-             fun(Pid, Module) -> Module:list_values(Pid) end).
+  ListValuesFun = fun(Pid, Module) -> Module:list_values(Pid) end,
+  case for_keeper(GroupName, GroupOrigin, ListValuesFun) of
+    Result when is_list(Result) -> Result;
+    none -> []
+  end.
 
 %% @doc Get a specific value.
 

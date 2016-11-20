@@ -228,31 +228,21 @@ process_request(_State = #state{path = Path, headers = _Headers}) ->
     {ok, {json_all, _Name               }} -> {error, 404};
     {ok, {json_all, _Name, _Origin, _Key}} -> {error, 404};
     {ok, {all, Name, Origin}} ->
-      % FIXME: `statip_value:list_values()' can return `none'
-      case statip_value:list_values(Name, Origin) of
-        Values when is_list(Values) ->
-          Body = lists:map(
-            fun(R) ->
-              {ok, JSON} = statip_value:to_json(Name, Origin, R),
-              [JSON, $\n]
-            end,
-            Values
-          ),
-          {ok, [content_type(list)], Body};
-        none ->
-          {error, 404}
-      end;
+      Values = statip_value:list_values(Name, Origin),
+      Body = lists:map(
+        fun(R) ->
+          {ok, JSON} = statip_value:to_json(Name, Origin, R),
+          [JSON, $\n]
+        end,
+        Values
+      ),
+      {ok, [content_type(list)], Body};
     {ok, {json_all, Name, Origin}} ->
-      % FIXME: `statip_value:list_values()' can return `none'
-      case statip_value:list_values(Name, Origin) of
-        Values when is_list(Values) ->
-          {ok, JSON} = statip_json:encode([
-            statip_value:to_struct(Name, Origin, V) || V <- Values
-          ]),
-          {ok, [content_type(json)], [JSON, $\n]};
-        none ->
-          {error, 404}
-      end;
+      Values = statip_value:list_values(Name, Origin),
+      {ok, JSON} = statip_json:encode([
+        statip_value:to_struct(Name, Origin, V) || V <- Values
+      ]),
+      {ok, [content_type(json)], [JSON, $\n]};
     {ok, Type} when Type == list; Type == json ->
       Names = statip_value:list_names(),
       {ok, [content_type(Type)], format(Type, Names)};
