@@ -45,21 +45,14 @@ handle_command([{<<"command">>, <<"compact_statelog">>}] = _Command, _Args) ->
   [{result, todo}];
 
 handle_command([{<<"command">>, <<"reopen_logs">>}] = _Command, _Args) ->
-  % the only log file that can possibly be opened is disk log for error_logger
-  case application:get_env(statip, error_logger_file) of
-    {ok, File} ->
-      case reopen_error_logger_file(File) of
-        ok ->
-          [{result, ok}];
-        {error, bad_logger_module} ->
-          [{result, error},
-            {message, <<"can't load `statip_disk_h' module">>}];
-        {error, {open, Reason}} -> % `Reason' is a string
-          [{result, error},
-            {message, iolist_to_binary(["can't open ", File, ": ", Reason])}]
+  case reopen_state_log_file() of
+    ok ->
+      case reopen_error_logger_file() of
+        ok -> [{result, ok}];
+        {error, Message} -> [{result, error}, {message, Message}]
       end;
-    undefined ->
-      [{result, ok}]
+    {error, Message} ->
+      [{result, error}, {message, Message}]
   end;
 
 handle_command([{<<"command">>, <<"dist_start">>}] = _Command, _Args) ->
@@ -208,6 +201,9 @@ hardcoded_reply(generic_ok     = _Event) -> [{<<"result">>, <<"ok">>}].
 
 %%%---------------------------------------------------------------------------
 
+%%----------------------------------------------------------
+%% waiting for/checking daemon's start {{{
+
 wait_for_start() ->
   case is_started() of
     true -> true;
@@ -220,6 +216,40 @@ is_started() ->
   case whereis(statip_sup) of
     Pid when is_pid(Pid) -> true;
     _ -> false
+  end.
+
+%% }}}
+%%----------------------------------------------------------
+%% reopening log files {{{
+
+-spec reopen_state_log_file() ->
+  ok | {error, binary()}.
+
+reopen_state_log_file() ->
+  case statip_state_log:reopen() of
+    ok ->
+      ok;
+    {error, Reason} ->
+      Message = ["can't open state log: ", statip_flog:format_error(Reason)],
+      {error, iolist_to_binary(Message)}
+  end.
+
+-spec reopen_error_logger_file() ->
+  ok | {error, binary()}.
+
+reopen_error_logger_file() ->
+  case application:get_env(statip, error_logger_file) of
+    {ok, File} ->
+      case reopen_error_logger_file(File) of
+        ok ->
+          ok;
+        {error, bad_logger_module} ->
+          {error, <<"can't load `statip_disk_h' module">>};
+        {error, {open, Reason}} -> % `Reason' is a string
+          {error, iolist_to_binary(["can't open ", File, ": ", Reason])}
+      end;
+    undefined ->
+      ok
   end.
 
 -spec reopen_error_logger_file(file:filename()) ->
@@ -243,6 +273,9 @@ reopen_error_logger_file(File) ->
     {error, Reason} ->
       {error, {open, statip_disk_h:format_error(Reason)}}
   end.
+
+%% }}}
+%%----------------------------------------------------------
 
 %%%---------------------------------------------------------------------------
 %%% vim:ft=erlang:foldmethod=marker

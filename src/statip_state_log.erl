@@ -12,7 +12,7 @@
 
 %% public interface
 -export([set/4, clear/3, clear/2, rotate/2]).
--export([compact/0]).
+-export([compact/0, reopen/0]).
 
 %% internal interface
 -export([compact/4]).
@@ -90,6 +90,14 @@ rotate(GroupName, GroupOrigin) ->
 
 compact() ->
   gen_server:call(?MODULE, compact).
+
+%% @doc Reopen state log file.
+
+-spec reopen() ->
+  ok | {error, file:posix()}.
+
+reopen() ->
+  gen_server:call(?MODULE, reopen).
 
 %%%---------------------------------------------------------------------------
 %%% supervision tree API
@@ -216,6 +224,26 @@ handle_call(compact = _Request, _From, State = #state{log_dir = LogDir}) ->
   {ok, {_Ref, _Handle} = CompactHandle} = start_compaction(LogDir),
   NewState = State#state{compaction = CompactHandle},
   {reply, ok, NewState};
+
+handle_call(reopen = _Request, _From, State = #state{log_dir = undefined}) ->
+  % no log to (re)open, ignore the request
+  {reply, ok, State};
+handle_call(reopen = _Request, _From, State = #state{compaction = {_,_}}) ->
+  {reply, ok, State};
+handle_call(reopen = _Request, _From, State = #state{log_dir = LogDir}) ->
+  case State of
+    #state{log_handle = undefined} -> ok;
+    #state{log_handle = Handle} -> statip_flog:close(Handle)
+  end,
+  LogFile = filename:join(LogDir, ?LOG_FILE),
+  case statip_flog:open(LogFile, [write]) of
+    {ok, NewHandle} ->
+      NewState = State#state{log_handle = NewHandle},
+      {reply, ok, NewState};
+    {error, Reason} ->
+      NewState = State#state{log_handle = undefined},
+      {reply, {error, Reason}, NewState}
+  end;
 
 %% unknown calls
 handle_call(_Request, _From, State) ->
