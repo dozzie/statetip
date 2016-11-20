@@ -42,7 +42,10 @@ handle_command([{<<"command">>, <<"reload_config">>}] = _Command, _Args) ->
   [{result, todo}];
 
 handle_command([{<<"command">>, <<"compact_statelog">>}] = _Command, _Args) ->
-  [{result, todo}];
+  case statip_state_log:compact() of
+    ok -> [{result, ok}];
+    {error, already_running} -> [{result, ok}]
+  end;
 
 handle_command([{<<"command">>, <<"reopen_logs">>}] = _Command, _Args) ->
   case reopen_state_log_file() of
