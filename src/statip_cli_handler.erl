@@ -290,6 +290,8 @@ format_error({bad_option, Option} = _Reason) ->
   ["invalid option: ", Option];
 format_error({bad_timeout, _Value} = _Reason) ->
   "invalid timeout value";
+format_error({not_enough_args, Option} = _Reason) ->
+  ["missing argument for option ", Option];
 format_error(too_many_args = _Reason) ->
   "too many arguments for this operation";
 format_error(too_little_args = _Reason) ->
