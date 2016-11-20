@@ -19,7 +19,7 @@ Synopsis
     statetipd [options] delete <name> [<origin> [<key>]]
     statetipd [options] log-dump [<logfile>]
     statetipd [options] log-replay [<logfile>]
-    statetipd [options] log-recreate [<logfile>] <dump-file>
+    statetipd [options] log-restore [<logfile>] <dump-file>
     statetipd [options] log-compact [<logfile>]
 
 Description
@@ -126,8 +126,8 @@ option as the target daemon's address. Similarly, ``start`` uses
 .. describe:: statetipd log-dump [<logfile>]
 
     Print the content of a state log file to *STDOUT* as a sequence of JSON
-    objects, one per line. A log file can be recreated with such a dump with
-    ``statetipd log-recreate`` command.
+    objects, one per line. A log file can be restored from such a dump with
+    ``statetipd log-restore`` command.
 
     **TODO**: use ``--config``
 
@@ -141,9 +141,9 @@ option as the target daemon's address. Similarly, ``start`` uses
 
     **TODO**: options for read block size, retries count
 
-.. describe:: statetipd log-recreate [<logfile>] <dump-file>
+.. describe:: statetipd log-restore [<logfile>] <dump-file>
 
-    Recreate a state log file from a dump that was created with ``statetipd
+    Create a state log file from a dump that was created with ``statetipd
     log-dump`` or ``statetipd log-replay``.
 
     **TODO**: use ``--config``
@@ -151,7 +151,7 @@ option as the target daemon's address. Similarly, ``start`` uses
 .. describe:: statetipd log-compact [<logfile>]
 
     Compact the specified state log file. Similar in effect to ``statetipd
-    log-replay`` followed by ``statetipd log-recreate``.
+    log-replay`` followed by ``statetipd log-restore``.
 
     This command is executed in the calling process, not in the daemon
     instance, unlike similar command ``statetipd compact-statelog``.

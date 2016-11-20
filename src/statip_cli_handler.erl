@@ -38,7 +38,7 @@
       | compact_statelog | reopen_logs
       | dist_start | dist_stop
       | list | delete
-      | log_dump | log_replay | log_recreate | log_compact,
+      | log_dump | log_replay | log_restore | log_compact,
   admin_socket :: file:filename(),
   options :: [{atom(), term()}],
   args :: [string()]
@@ -82,17 +82,17 @@ parse_arguments(Args, [DefAdminSocket, DefConfig] = _Defaults) ->
       {error, too_many_args};
     {ok, _Options = #opts{op = log_replay, args = [_,_|_]}} ->
       {error, too_many_args};
-    {ok, _Options = #opts{op = log_recreate, args = []}} ->
+    {ok, _Options = #opts{op = log_restore, args = []}} ->
       {error, too_little_args};
-    {ok, _Options = #opts{op = log_recreate, args = [_,_,_|_]}} ->
+    {ok, _Options = #opts{op = log_restore, args = [_,_,_|_]}} ->
       {error, too_many_args};
     {ok, _Options = #opts{op = log_compact, args = [_,_|_]}} ->
       {error, too_many_args};
 
-    {ok, Options = #opts{op = log_dump    }} -> {ok, log_dump,     Options};
-    {ok, Options = #opts{op = log_replay  }} -> {ok, log_replay,   Options};
-    {ok, Options = #opts{op = log_recreate}} -> {ok, log_recreate, Options};
-    {ok, Options = #opts{op = log_compact }} -> {ok, log_compact,  Options};
+    {ok, Options = #opts{op = log_dump   }} -> {ok, log_dump,    Options};
+    {ok, Options = #opts{op = log_replay }} -> {ok, log_replay,  Options};
+    {ok, Options = #opts{op = log_restore}} -> {ok, log_restore, Options};
+    {ok, Options = #opts{op = log_compact}} -> {ok, log_compact, Options};
 
     {ok, _Options = #opts{op = Command, args = [_|_]}}
     when Command /= list, Command /= delete ->
@@ -193,10 +193,10 @@ handle_command(log_replay = _Command,
   io:fwrite("log-replay is not implemented yet~n"),
   {error, 253};
 
-handle_command(log_recreate = _Command,
+handle_command(log_restore = _Command,
                _Options = #opts{options = _CLIOpts, args = _Args}) ->
   % TODO
-  io:fwrite("log-recreate is not implemented yet~n"),
+  io:fwrite("log-restore is not implemented yet~n"),
   {error, 253};
 
 handle_command(log_compact = _Command,
@@ -369,7 +369,7 @@ help(ScriptName) ->
     "Log file management:\n",
     "  ", ScriptName, " log-dump [<logfile>]\n",
     "  ", ScriptName, " log-replay [<logfile>]\n",
-    "  ", ScriptName, " log-recreate [<logfile>] <dump-file>\n",
+    "  ", ScriptName, " log-restore [<logfile>] <dump-file>\n",
     "  ", ScriptName, " log-compact [<logfile>]\n",
     ""
   ].
@@ -650,10 +650,10 @@ cli_opt(Arg, Opts = #opts{op = undefined}) ->
     "dist-erl-stop"  -> Opts#opts{op = dist_stop};
     "list"   -> Opts#opts{op = list};
     "delete" -> Opts#opts{op = delete};
-    "log-dump"     -> Opts#opts{op = log_dump};
-    "log-replay"   -> Opts#opts{op = log_replay};
-    "log-recreate" -> Opts#opts{op = log_recreate};
-    "log-compact"  -> Opts#opts{op = log_compact};
+    "log-dump"    -> Opts#opts{op = log_dump};
+    "log-replay"  -> Opts#opts{op = log_replay};
+    "log-restore" -> Opts#opts{op = log_restore};
+    "log-compact" -> Opts#opts{op = log_compact};
     _ -> {error, bad_command}
   end.
 
