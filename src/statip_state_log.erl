@@ -217,10 +217,13 @@ handle_call({rotate, GroupName, GroupOrigin} = _Request, _From,
 
 handle_call(compact = _Request, _From, State = #state{log_dir = undefined}) ->
   % ignore compaction requests
+  statip_log:info("compaction request ignored, state log not configured"),
   {reply, ok, State};
 handle_call(compact = _Request, _From, State = #state{compaction = {_,_}}) ->
+  statip_log:info("compaction already in progress, request ignored"),
   {reply, {error, already_running}, State};
 handle_call(compact = _Request, _From, State = #state{log_dir = LogDir}) ->
+  statip_log:info("compaction request"),
   {ok, {_Ref, _Handle} = CompactHandle} = start_compaction(LogDir),
   NewState = State#state{compaction = CompactHandle},
   {reply, ok, NewState};
@@ -265,6 +268,7 @@ handle_info(check_log_size = _Message, State = #state{log_dir = LogDir}) ->
   erlang:send_after(?COMPACT_DECISION_INTERVAL, self(), check_log_size),
   case should_compaction_start(State) of
     true ->
+      statip_log:info("state log too big, starting compaction"),
       {ok, {_Ref, _Handle} = CompactHandle} = start_compaction(LogDir),
       NewState = State#state{compaction = CompactHandle},
       {noreply, NewState};
