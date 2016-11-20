@@ -86,7 +86,7 @@ rotate(GroupName, GroupOrigin) ->
 %% @doc Start log compaction process outside of its schedule.
 
 -spec compact() ->
-  ok | {error, already_running | file:posix()}.
+  ok | {error, already_running}.
 
 compact() ->
   gen_server:call(?MODULE, compact).
