@@ -21,7 +21,7 @@
 #compaction_size = 10485760
 
 [logging]
-# log destinations ("statip_syslog_h" and/or "statip_tty_h")
+# log destinations ("statip_syslog_h" and/or "statip_stdout_h")
 handlers = ["statip_syslog_h"]
 
 [erlang]
