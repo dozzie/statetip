@@ -6,9 +6,10 @@ Table of contents
 =================
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
-   manpages/index
+   manpages/client
+   manpages/daemon
    python-api
    manpages/protocols
    glossary
