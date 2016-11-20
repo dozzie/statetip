@@ -37,7 +37,8 @@
   op :: start | status | stop | reload_config | reopen_logs
       | dist_start | dist_stop,
   admin_socket :: file:filename(),
-  options :: [{atom(), term()}]
+  options :: [{atom(), term()}],
+  args :: [string()]
 }).
 
 %%% }}}
@@ -54,6 +55,7 @@
 parse_arguments(Args, [DefAdminSocket, DefConfig] = _Defaults) ->
   EmptyOptions = #opts{
     admin_socket = DefAdminSocket,
+    args = [],
     options = [
       {config, DefConfig}
     ]
@@ -65,6 +67,9 @@ parse_arguments(Args, [DefAdminSocket, DefConfig] = _Defaults) ->
 
     {ok, _Options = #opts{op = undefined}} ->
       help;
+
+    {ok, _Options = #opts{args = [_|_]}} ->
+      {error, too_many_args};
 
     {ok, Options = #opts{op = Command, admin_socket = AdminSocket}} ->
       {send, {?ADMIN_SOCKET_TYPE, AdminSocket}, Command, Options};
@@ -214,6 +219,10 @@ format_error({bad_option, Option} = _Reason) ->
   ["invalid option: ", Option];
 format_error({bad_timeout, _Value} = _Reason) ->
   "invalid timeout value";
+format_error(too_many_args = _Reason) ->
+  "too many arguments for this operation";
+format_error(too_little_args = _Reason) ->
+  "too little arguments for this operation";
 
 %% config file handling (`start')
 format_error({config_read, Error} = _Reason) ->
@@ -542,6 +551,11 @@ cli_opt("--print-pid" = _Arg, Opts = #opts{options = Options}) ->
 
 cli_opt("-" ++ _ = _Arg, _Opts) ->
   {error, bad_option};
+
+cli_opt(Arg, Opts = #opts{op = Op, args = OpArgs}) when Op /= undefined ->
+  % `++' operator is a little costly, but considering how many arguments there
+  % will be, the time it all takes will drown in Erlang startup
+  _NewOpts = Opts#opts{args = OpArgs ++ [Arg]};
 
 cli_opt(Arg, Opts = #opts{op = undefined}) ->
   case Arg of
