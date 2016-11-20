@@ -66,8 +66,9 @@ handle_command([{<<"command">>, <<"dist_start">>}] = _Command, _Args) ->
   case indira_app:distributed_start() of
     ok ->
       [{result, ok}];
-    {error, _Reason} ->
-      % TODO: log this event
+    {error, Reason} ->
+      statip_log:warn(command, "can't setup Erlang networking",
+                      [{reason, {term, Reason}}]),
       [{result, error}, {message, <<"Erlang networking error">>}]
   end;
 
@@ -75,8 +76,9 @@ handle_command([{<<"command">>, <<"dist_stop">>}] = _Command, _Args) ->
   case indira_app:distributed_stop() of
     ok ->
       [{result, ok}];
-    {error, _Reason} ->
-      % TODO: log this event
+    {error, Reason} ->
+      statip_log:warn(command, "can't shutdown Erlang networking",
+                      [{reason, {term, Reason}}]),
       [{result, error}, {message, <<"Erlang networking error">>}]
   end;
 
