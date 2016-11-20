@@ -256,14 +256,23 @@ handle_reply(Reply, stop = Command, _Options = #opts{options = CLIOpts}) ->
 
 handle_reply(Reply, list = Command, _Options) ->
   case ?ADMIN_COMMAND_MODULE:parse_reply(Reply, Command) of
-    {ok, names, _Names} ->
-      ok; % TODO
-    {ok, origins, _Origins} ->
-      ok; % TODO
-    {ok, keys, _Keys} ->
-      ok; % TODO
-    {ok, value, _Value} ->
-      ok; % TODO
+    {ok, names, Names} ->
+      lists:foreach(fun println/1, Names),
+      ok;
+    {ok, origins, Origins} ->
+      % TODO: change `null' origin encoding
+      lists:foreach(fun (null) -> println("<null>"); (O) -> println(O) end,
+                    Origins),
+      ok;
+    {ok, keys, Keys} ->
+      lists:foreach(fun println/1, Keys),
+      ok;
+    {ok, value, null} ->
+      ok;
+    {ok, value, ValueStruct} ->
+      {ok, JSON} = statip_json:encode(ValueStruct),
+      println(JSON),
+      ok;
     {error, Reason} ->
       {error, Reason}
   end;

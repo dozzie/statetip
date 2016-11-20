@@ -83,13 +83,22 @@ handle_command([{<<"command">>, <<"list">>}, {<<"query">>, Query}] = _Command,
   % [{result, ok}, {names | origins | keys | value, Result}]
   case Query of
     [{}] ->
-      [{result, todo}];
-    [{<<"name">>, _Name}] ->
-      [{result, todo}];
-    [{<<"name">>, _Name}, {<<"origin">>, _Origin}] ->
-      [{result, todo}];
-    [{<<"key">>, _Key}, {<<"name">>, _Name}, {<<"origin">>, _Origin}] ->
-      [{result, todo}]
+      Names = statip_value:list_names(),
+      [{result, ok}, {names, Names}];
+    [{<<"name">>, Name}] ->
+      Origins = [undef_to_null(O) || O <- statip_value:list_origins(Name)],
+      [{result, ok}, {origins, Origins}];
+    [{<<"name">>, Name}, {<<"origin">>, Origin}] ->
+      Keys = statip_value:list_keys(Name, null_to_undef(Origin)),
+      [{result, ok}, {keys, Keys}];
+    [{<<"key">>, Key}, {<<"name">>, Name}, {<<"origin">>, Origin}] ->
+      case statip_value:get_value(Name, null_to_undef(Origin), Key) of
+        none ->
+          [{result, ok}, {value, null}];
+        Value ->
+          Result = statip_value:to_struct(Name, null_to_undef(Origin), Value),
+          [{result, ok}, {value, Result}]
+      end
   end;
 handle_command([{<<"command">>,<<"delete">>}, {<<"query">>,Query}] = _Command,
                _Args) ->
@@ -276,6 +285,16 @@ reopen_error_logger_file(File) ->
     {error, Reason} ->
       {error, {open, statip_disk_h:format_error(Reason)}}
   end.
+
+%% }}}
+%%----------------------------------------------------------
+%% null <-> undefined conversion {{{
+
+null_to_undef(null) -> undefined;
+null_to_undef(Value) -> Value.
+
+undef_to_null(undefined) -> null;
+undef_to_null(Value) -> Value.
 
 %% }}}
 %%----------------------------------------------------------
