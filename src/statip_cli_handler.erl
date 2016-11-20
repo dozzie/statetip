@@ -37,7 +37,8 @@
   op :: start | status | stop | reload_config
       | compact_statelog | reopen_logs
       | dist_start | dist_stop
-      | list | delete,
+      | list | delete
+      | log_dump | log_replay | log_recreate | log_compact,
   admin_socket :: file:filename(),
   options :: [{atom(), term()}],
   args :: [string()]
@@ -76,6 +77,22 @@ parse_arguments(Args, [DefAdminSocket, DefConfig] = _Defaults) ->
       {error, too_little_args};
     {ok, _Options = #opts{op = delete, args = [_,_,_,_|_]}} ->
       {error, too_many_args};
+
+    {ok, _Options = #opts{op = log_dump, args = [_,_|_]}} ->
+      {error, too_many_args};
+    {ok, _Options = #opts{op = log_replay, args = [_,_|_]}} ->
+      {error, too_many_args};
+    {ok, _Options = #opts{op = log_recreate, args = []}} ->
+      {error, too_little_args};
+    {ok, _Options = #opts{op = log_recreate, args = [_,_,_|_]}} ->
+      {error, too_many_args};
+    {ok, _Options = #opts{op = log_compact, args = [_,_|_]}} ->
+      {error, too_many_args};
+
+    {ok, Options = #opts{op = log_dump    }} -> {ok, log_dump,     Options};
+    {ok, Options = #opts{op = log_replay  }} -> {ok, log_replay,   Options};
+    {ok, Options = #opts{op = log_recreate}} -> {ok, log_recreate, Options};
+    {ok, Options = #opts{op = log_compact }} -> {ok, log_compact,  Options};
 
     {ok, _Options = #opts{op = Command, args = [_|_]}}
     when Command /= list, Command /= delete ->
@@ -162,7 +179,31 @@ handle_command(stop = Command,
       handle_reply(Reply, Command, Options);
     {error, Reason} ->
       {error, {send, Reason}} % mimic what `indira_cli:execute()' returns
-  end.
+  end;
+
+handle_command(log_dump = _Command,
+               _Options = #opts{options = _CLIOpts, args = _Args}) ->
+  % TODO
+  io:fwrite("log-dump is not implemented yet~n"),
+  {error, 253};
+
+handle_command(log_replay = _Command,
+               _Options = #opts{options = _CLIOpts, args = _Args}) ->
+  % TODO
+  io:fwrite("log-replay is not implemented yet~n"),
+  {error, 253};
+
+handle_command(log_recreate = _Command,
+               _Options = #opts{options = _CLIOpts, args = _Args}) ->
+  % TODO
+  io:fwrite("log-recreate is not implemented yet~n"),
+  {error, 253};
+
+handle_command(log_compact = _Command,
+               _Options = #opts{options = _CLIOpts, args = _Args}) ->
+  % TODO
+  io:fwrite("log-compact is not implemented yet~n"),
+  {error, 253}.
 
 %% }}}
 %%----------------------------------------------------------
@@ -599,6 +640,10 @@ cli_opt(Arg, Opts = #opts{op = undefined}) ->
     "dist-erl-stop"  -> Opts#opts{op = dist_stop};
     "list"   -> Opts#opts{op = list};
     "delete" -> Opts#opts{op = delete};
+    "log-dump"     -> Opts#opts{op = log_dump};
+    "log-replay"   -> Opts#opts{op = log_replay};
+    "log-recreate" -> Opts#opts{op = log_recreate};
+    "log-compact"  -> Opts#opts{op = log_compact};
     _ -> {error, bad_command}
   end.
 
