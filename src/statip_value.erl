@@ -101,7 +101,7 @@ list_names() ->
   [origin()].
 
 list_origins(GroupName) ->
-  statip_registry:list_origins(GroupName).
+  lists:sort(statip_registry:list_origins(GroupName)).
 
 %% @doc List the keys in an origin of a value group.
 
