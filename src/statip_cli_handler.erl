@@ -260,7 +260,6 @@ handle_reply(Reply, list = Command, _Options) ->
       lists:foreach(fun println/1, Names),
       ok;
     {ok, origins, Origins} ->
-      % TODO: change `null' origin encoding
       lists:foreach(fun (null) -> println("<null>"); (O) -> println(O) end,
                     Origins),
       ok;

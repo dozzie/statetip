@@ -110,11 +110,18 @@ option as the target daemon's address. Similarly, ``start`` uses
 
     List known value group names, origins, keys, or specific value.
 
+    ``null`` origin in arguments is encoded as an empty string, so the command
+    is ``statetipd list <name> "" [<key>]``. In ``statetipd list <name>``,
+    ``null`` origin is printed as ``"<null>"``.
+
     The same information can be extracted using :manpage:`statetip(1)` tool.
 
 .. describe:: statetipd delete <name> [<origin> [<key>]]
 
     Delete value group, origin in a value group, or specific value.
+
+    ``null`` origin is encoded as an empty string, so the command is
+    ``statetipd delete <name> "" [<key>]``.
 
 .. describe:: statetipd log-dump [<logfile>]
 
