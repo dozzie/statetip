@@ -11,6 +11,8 @@
 
 %% general-purpose interface
 -export([timestamp/0]).
+%% value serialization and deserialization
+-export([to_struct/3, from_struct/1, to_json/3, from_json/1]).
 %% data access interface
 -export([add/4, restore/4]).
 -export([list_names/0, list_origins/1]).
@@ -237,6 +239,83 @@ start_keeper(GroupName, GroupOrigin, unrelated = _GroupType) ->
   case statip_keeper_unrelated:spawn_keeper(GroupName, GroupOrigin) of
     {ok, Pid} when is_pid(Pid) -> {Pid, statip_keeper_unrelated};
     {ok, undefined} -> none
+  end.
+
+%%%---------------------------------------------------------------------------
+%%% value serialization and deserialization
+%%%---------------------------------------------------------------------------
+
+%% @doc Encode a value to a JSON-serializable structure.
+%%
+%% @see statip_json
+%% @see from_struct/1
+%% @see from_json/1
+%% @see to_json/3
+
+-spec to_struct(name(), origin(), #value{}) ->
+  statip_json:struct().
+
+to_struct(GroupName, GroupOrigin, Value = #value{}) ->
+  % TODO: how about "created" and "expires" fields?
+  _Result = [
+    {name, GroupName},
+    {origin, undef_null(GroupOrigin)},
+    {key,      Value#value.key},
+    {state,    undef_null(Value#value.state)},
+    {severity, Value#value.severity},
+    {info,     Value#value.info}
+  ].
+
+undef_null(undefined = _Value) -> null;
+undef_null(Value) -> Value.
+
+%% @doc Decode a JSON-serializable struct to a value.
+%%
+%% @see statip_json
+%% @see to_struct/3
+%% @see from_json/1
+%% @see to_json/3
+
+-spec from_struct(statip_json:struct()) ->
+  {name(), origin(), #value{}}.
+
+from_struct(_Struct) ->
+  {<<"TODO">>, <<"TODO">>, #value{}}.
+
+%% @doc Encode a value to JSON string.
+%%
+%% @see statip_json
+%% @see from_json/1
+%% @see from_struct/1
+%% @see to_struct/3
+
+-spec to_json(name(), origin(), #value{}) ->
+  {ok, statip_json:json_string()} | {error, badarg}.
+
+to_json(GroupName, GroupOrigin, Value = #value{}) ->
+  Struct = to_struct(GroupName, GroupOrigin, Value),
+  statip_json:encode(Struct).
+
+%% @doc Decode a JSON string to a value.
+%%
+%% @see statip_json
+%% @see to_json/3
+%% @see from_struct/1
+%% @see to_struct/3
+
+-spec from_json(statip_json:json_string()) ->
+  {ok, {name(), origin(), #value{}} } | {error, badarg}.
+
+from_json(JSON) ->
+  case statip_json:decode(JSON) of
+    {ok, Struct} ->
+      try
+        from_struct(Struct)
+      catch
+        error:_ -> {error, badarg}
+      end;
+    {error, badarg} ->
+      {error, badarg}
   end.
 
 %%%---------------------------------------------------------------------------

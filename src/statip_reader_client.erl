@@ -233,7 +233,7 @@ process_request(_State = #state{path = Path, headers = _Headers}) ->
         Values when is_list(Values) ->
           Body = lists:map(
             fun(R) ->
-              {ok, JSON} = statip_json:encode(encode_value(Name, Origin, R)),
+              {ok, JSON} = statip_value:to_json(Name, Origin, R),
               [JSON, $\n]
             end,
             Values
@@ -247,7 +247,7 @@ process_request(_State = #state{path = Path, headers = _Headers}) ->
       case statip_value:list_values(Name, Origin) of
         Values when is_list(Values) ->
           {ok, JSON} = statip_json:encode([
-            encode_value(Name, Origin, V) || V <- Values
+            statip_value:to_struct(Name, Origin, V) || V <- Values
           ]),
           {ok, [content_type(json)], [JSON, $\n]};
         none ->
@@ -265,9 +265,8 @@ process_request(_State = #state{path = Path, headers = _Headers}) ->
       {ok, [content_type(Type)], format(Type, Keys)};
     {ok, {Type, Name, Origin, Key}} when Type == list; Type == json ->
       case statip_value:get_value(Name, Origin, Key) of
-        Values = #value{} ->
-          Struct = encode_value(Name, Origin, Values),
-          {ok, JSON} = statip_json:encode(Struct),
+        Value = #value{} ->
+          {ok, JSON} = statip_value:to_json(Name, Origin, Value),
           {ok, [content_type(Type)], [JSON, $\n]};
         none ->
           {error, 404}
@@ -346,23 +345,6 @@ format(list, Strings) ->
 format(json, Strings) ->
   {ok, JSON} = statip_json:encode(Strings),
   [JSON, $\n].
-
--spec encode_value(statip_value:name(), statip_value:origin(), #value{}) ->
-  statip_json:struct().
-
-encode_value(Name, Origin, Value = #value{}) ->
-  % TODO: how about "created" and "expires" fields?
-  _Result = [
-    {name, Name},
-    {origin, undef_null(Origin)},
-    {key,      Value#value.key},
-    {state,    undef_null(Value#value.state)},
-    {severity, Value#value.severity},
-    {info,     Value#value.info}
-  ].
-
-undef_null(undefined = _Value) -> null;
-undef_null(Value) -> Value.
 
 %%----------------------------------------------------------
 
