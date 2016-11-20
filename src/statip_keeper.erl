@@ -28,6 +28,14 @@
   ok.
 
 %% may die on noproc
+-callback shutdown(Pid :: pid()) ->
+  ok.
+
+%% may die on noproc
+-callback delete(Pid :: pid(), Key :: statip_value:key()) ->
+  ok.
+
+%% may die on noproc
 -callback list_keys(Pid :: pid()) ->
   [statip_value:key()].
 

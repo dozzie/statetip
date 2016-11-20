@@ -11,6 +11,7 @@
 
 %% public interface
 -export([spawn_keeper/2, add/2, restore/2]).
+-export([shutdown/1, delete/2]).
 -export([list_keys/1, list_values/1, get_value/2]).
 
 %% supervision tree API
@@ -80,6 +81,22 @@ restore(Pid, Values) ->
 
 add(Pid, Value = #value{}) ->
   gen_server:cast(Pid, {add, Value}).
+
+%% @doc Shutdown a keeper, effectively deleting all the keys.
+
+-spec shutdown(pid()) ->
+  ok.
+
+shutdown(Pid) ->
+  gen_server:cast(Pid, shutdown).
+
+%% @doc Delete one value remembered by the keeper.
+
+-spec delete(pid(), statip_value:key()) ->
+  ok.
+
+delete(Pid, Key) ->
+  gen_server:cast(Pid, {delete, Key}).
 
 %% @doc List keys of all values remembered by the keeper.
 

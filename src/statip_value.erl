@@ -15,6 +15,7 @@
 -export([to_struct/3, from_struct/1, to_json/3, from_json/1]).
 %% data access interface
 -export([add/4, restore/4]).
+-export([delete/1, delete/2, delete/3]).
 -export([list_names/0, list_origins/1]).
 -export([list_keys/2, list_values/2, get_value/3]).
 
@@ -87,6 +88,50 @@ add(GroupName, GroupOrigin, Value, GroupType) ->
   case get_keeper(GroupName, GroupOrigin, GroupType) of
     {Pid, Module} -> Module:add(Pid, Value);
     none -> ok
+  end.
+
+%% @doc Delete whole value group.
+
+-spec delete(name()) ->
+  ok.
+
+delete(GroupName) ->
+  lists:foreach(fun(GroupOrigin) -> delete(GroupName, GroupOrigin) end,
+                statip_registry:list_origins(GroupName)),
+  ok.
+
+%% @doc Delete all values from value group of specifc origin.
+
+-spec delete(name(), origin()) ->
+  ok.
+
+delete(GroupName, GroupOrigin) ->
+  case get_keeper(GroupName, GroupOrigin) of
+    {Pid, Module} ->
+      try
+        Module:shutdown(Pid)
+      catch
+        exit:{noproc, {gen_server, call, _Args}} -> ok
+      end;
+    none ->
+      ok
+  end.
+
+%% @doc Delete a value.
+
+-spec delete(name(), origin(), key()) ->
+  ok.
+
+delete(GroupName, GroupOrigin, Key) ->
+  case get_keeper(GroupName, GroupOrigin) of
+    {Pid, Module} ->
+      try
+        Module:delete(Pid, Key)
+      catch
+        exit:{noproc, {gen_server, call, _Args}} -> ok
+      end;
+    none ->
+      ok
   end.
 
 %% @doc List names of value groups.
