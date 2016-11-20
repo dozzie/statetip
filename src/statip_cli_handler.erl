@@ -268,10 +268,19 @@ help(ScriptName) ->
     "  ", ScriptName, " [--socket <path>] status [--wait [--timeout <seconds>]]\n",
     "  ", ScriptName, " [--socket <path>] stop [--timeout <seconds>] [--print-pid]\n",
     "  ", ScriptName, " [--socket <path>] reload-config\n",
+    "  ", ScriptName, " [--socket <path>] compact-statelog\n",
     "  ", ScriptName, " [--socket <path>] reopen-logs\n",
     "Distributed Erlang support:\n",
     "  ", ScriptName, " [--socket <path>] dist-erl-start\n",
     "  ", ScriptName, " [--socket <path>] dist-erl-stop\n",
+    "Data management:\n",
+    "  ", ScriptName, " [--socket <path>] list [<name> [<origin> [<key>]]]\n",
+    "  ", ScriptName, " [--socket <path>] delete <name> [<origin> [<key>]]\n",
+    "Log file management:\n",
+    "  ", ScriptName, " log-dump [<logfile>]\n",
+    "  ", ScriptName, " log-replay [<logfile>]\n",
+    "  ", ScriptName, " log-recreate [<logfile>] <dump-file>\n",
+    "  ", ScriptName, " log-compact [<logfile>]\n",
     ""
   ].
 
