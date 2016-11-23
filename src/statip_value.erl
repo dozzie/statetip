@@ -12,7 +12,7 @@
 %% general-purpose interface
 -export([timestamp/0]).
 %% value serialization and deserialization
--export([to_struct/3, from_struct/1, to_json/3, from_json/1]).
+-export([to_struct/3, to_struct/4, from_struct/1, to_json/3, from_json/1]).
 %% data access interface
 -export([add/4, restore/4]).
 -export([delete/1, delete/2, delete/3]).
@@ -290,6 +290,10 @@ start_keeper(GroupName, GroupOrigin, unrelated = _GroupType) ->
 
 %% @doc Encode a value to a JSON-serializable structure.
 %%
+%%   <i>NOTE</i>: Only a most commonly used portion of `Value' will be
+%%   encoded. To encode each and every detail, see {@link to_struct/4}.
+%%
+%% @see to_struct/4
 %% @see statip_json
 %% @see from_struct/1
 %% @see from_json/1
@@ -299,14 +303,41 @@ start_keeper(GroupName, GroupOrigin, unrelated = _GroupType) ->
   statip_json:struct().
 
 to_struct(GroupName, GroupOrigin, Value = #value{}) ->
-  % TODO: how about "created" and "expires" fields?
+  to_struct(GroupName, GroupOrigin, Value, []).
+
+%% @doc Encode a value to a JSON-serializable structure.
+%%
+%%   By default, only most commonly used fields of {@type #value@{@}} (key,
+%%   state, severity, info) will be encoded. To include them all, specify
+%%   `full' as an option.
+%%
+%% @see to_struct/4
+%% @see statip_json
+%% @see from_struct/1
+%% @see from_json/1
+%% @see to_json/3
+
+-spec to_struct(name(), origin(), #value{}, Options :: [Option]) ->
+  statip_json:struct()
+  when Option :: full.
+
+to_struct(GroupName, GroupOrigin, Value, Options) ->
+  Details = case proplists:get_bool(full, Options) of
+    true -> [
+      {sort_key, undef_null(Value#value.sort_key)},
+      {created,  Value#value.created},
+      {expires,  Value#value.expires}
+    ];
+    false -> []
+  end,
   _Result = [
     {name, GroupName},
     {origin, undef_null(GroupOrigin)},
     {key,      Value#value.key},
     {state,    undef_null(Value#value.state)},
     {severity, Value#value.severity},
-    {info,     Value#value.info}
+    {info,     Value#value.info} |
+    Details
   ].
 
 undef_null(undefined = _Value) -> null;
