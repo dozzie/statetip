@@ -620,13 +620,11 @@ cli_opt("--timeout=" ++ Timeout = _Arg, Opts) ->
 cli_opt("--timeout" = _Arg, _Opts) ->
   {need, 1};
 cli_opt(["--timeout", Timeout] = _Arg, Opts = #opts{options = Options}) ->
-  try
-    Seconds = list_to_integer(Timeout),
-    true = (Seconds > 0),
-    % NOTE: we need timeout in milliseconds
-    _NewOpts = Opts#opts{options = [{timeout, Seconds * 1000} | Options]}
-  catch
-    _:_ ->
+  case make_integer(Timeout) of
+    {ok, Seconds} when Seconds > 0 ->
+      % NOTE: we need timeout in milliseconds
+      _NewOpts = Opts#opts{options = [{timeout, Seconds * 1000} | Options]};
+    _ ->
       {error, bad_timeout}
   end;
 
@@ -664,6 +662,20 @@ cli_opt(Arg, Opts = #opts{op = undefined}) ->
     "log-restore" -> Opts#opts{op = log_restore};
     "log-compact" -> Opts#opts{op = log_compact};
     _ -> {error, bad_command}
+  end.
+
+%% @doc Helper to convert string to integer.
+%%
+%%   Doesn't die on invalid argument.
+
+-spec make_integer(string()) ->
+  {ok, integer()} | {error, badarg}.
+
+make_integer(String) ->
+  try list_to_integer(String) of
+    Integer -> {ok, Integer}
+  catch
+    error:badarg -> {error, badarg}
   end.
 
 %% }}}
