@@ -17,10 +17,10 @@ Synopsis
     statetipd [options] dist-erl-stop
     statetipd [options] list [<name> [<origin> [<key>]]]
     statetipd [options] delete <name> [<origin> [<key>]]
-    statetipd [options] log-dump <logfile>
-    statetipd [options] log-replay <logfile>
-    statetipd [options] log-restore <logfile> <dump-file>
-    statetipd [options] log-compact <logfile>
+    statetipd log-dump <logfile> [--read-block <bytes>] [--read-tries <count>]
+    statetipd log-replay <logfile> [--read-block <bytes>] [--read-tries <count>]
+    statetipd log-restore <logfile> <dump-file>
+    statetipd log-compact <logfile> [--read-block <bytes>] [--read-tries <count>]
 
 Description
 ===========
@@ -123,36 +123,30 @@ option as the target daemon's address. Similarly, ``start`` uses
     ``null`` origin is encoded as an empty string, so the command is
     ``statetipd delete <name> "" [<key>]``.
 
-.. describe:: statetipd log-dump <logfile>
+.. describe:: statetipd log-dump <logfile> [--read-block <bytes>] [--read-tries <count>]
 
     Print the content of a state log file to *STDOUT* as a sequence of JSON
     objects, one per line. A log file can be restored from such a dump with
     ``statetipd log-restore`` command.
 
-    **TODO**: options for read block size, retries count
-
-.. describe:: statetipd log-replay <logfile>
+.. describe:: statetipd log-replay <logfile> [--read-block <bytes>] [--read-tries <count>]
 
     Replay a state log file and print the end result to *STDOUT* as a sequence
     of JSON objects, one per line. This command is similar to ``statetipd
     log-dump``, except it only prints the most recent values.
-
-    **TODO**: options for read block size, retries count
 
 .. describe:: statetipd log-restore <logfile> <dump-file>
 
     Create a state log file from a dump that was created with ``statetipd
     log-dump`` or ``statetipd log-replay``.
 
-.. describe:: statetipd log-compact <logfile>
+.. describe:: statetipd log-compact <logfile> [--read-block <bytes>] [--read-tries <count>]
 
     Compact the specified state log file. Similar in effect to ``statetipd
     log-replay`` followed by ``statetipd log-restore``.
 
     This command is executed in the calling process, not in the daemon
     instance, unlike similar command ``statetipd compact-statelog``.
-
-    **TODO**: options for read block size, retries count
 
 Options
 -------
@@ -202,6 +196,24 @@ Options
     Flag to make ``statetipd status`` command to wait for control socket to
     appear instead of telling immediately that the daemon is stopped. Option
     intended for use in initscripts.
+
+.. option:: --read-block <bytes>
+
+    Size of a maximum block that is read from a log file. A single record
+    needs to fit in this block. It will also be used to search for a valid
+    record if a damaged entry is encountered.
+
+    The block size must be a multiple of 8.
+
+    Default is 4096 bytes. For comparison, records with a small *info* field
+    take around 150-200 bytes.
+
+.. option:: --read-tries <count>
+
+    Number of consequent read blocks (:option:`--read-block`) that will be
+    tried if a damaged entry is encountered.
+
+    Default is 3 blocks.
 
 .. _statetipd-config:
 

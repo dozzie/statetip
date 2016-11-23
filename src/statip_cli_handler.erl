@@ -60,7 +60,9 @@ parse_arguments(Args, [DefAdminSocket, DefConfig] = _Defaults) ->
     admin_socket = DefAdminSocket,
     args = [],
     options = [
-      {config, DefConfig}
+      {config, DefConfig},
+      {read_block, 4096}, % the same as in `statip_state_log' module
+      {read_tries, 3}     % the same as in `statip_state_log' module
     ]
   },
   case indira_cli:folds(fun cli_opt/2, EmptyOptions, Args) of
@@ -307,6 +309,10 @@ format_error({bad_option, Option} = _Reason) ->
   ["invalid option: ", Option];
 format_error({bad_timeout, _Value} = _Reason) ->
   "invalid timeout value";
+format_error({bad_read_block, _Value} = _Reason) ->
+  "invalid read block size";
+format_error({bad_read_tries, _Value} = _Reason) ->
+  "invalid read tries number";
 format_error({not_enough_args, Option} = _Reason) ->
   ["missing argument for option ", Option];
 format_error(too_many_args = _Reason) ->
@@ -376,10 +382,10 @@ help(ScriptName) ->
     "  ", ScriptName, " [--socket <path>] list [<name> [<origin> [<key>]]]\n",
     "  ", ScriptName, " [--socket <path>] delete <name> [<origin> [<key>]]\n",
     "Log file management:\n",
-    "  ", ScriptName, " log-dump <logfile>\n",
-    "  ", ScriptName, " log-replay <logfile>\n",
+    "  ", ScriptName, " log-dump <logfile> [--read-block <bytes>] [--read-tries <count>]\n",
+    "  ", ScriptName, " log-replay <logfile> [--read-block <bytes>] [--read-tries <count>]\n",
     "  ", ScriptName, " log-restore <logfile> <dump-file>\n",
-    "  ", ScriptName, " log-compact <logfile>\n",
+    "  ", ScriptName, " log-compact <logfile> [--read-block <bytes>] [--read-tries <count>]\n",
     ""
   ].
 
@@ -626,6 +632,30 @@ cli_opt(["--timeout", Timeout] = _Arg, Opts = #opts{options = Options}) ->
       _NewOpts = Opts#opts{options = [{timeout, Seconds * 1000} | Options]};
     _ ->
       {error, bad_timeout}
+  end;
+
+cli_opt("--read-block=" ++ ReadBlock = _Arg, Opts) ->
+  cli_opt(["--read-block", ReadBlock], Opts);
+cli_opt("--read-block" = _Arg, _Opts) ->
+  {need, 1};
+cli_opt(["--read-block", ReadBlock] = _Arg, Opts = #opts{options = Options}) ->
+  case make_integer(ReadBlock) of
+    {ok, Bytes} when Bytes > 0, Bytes rem 8 == 0 ->
+      _NewOpts = Opts#opts{options = [{read_block, Bytes} | Options]};
+    _ ->
+      {error, bad_read_block}
+  end;
+
+cli_opt("--read-tries=" ++ ReadTries = _Arg, Opts) ->
+  cli_opt(["--read-tries", ReadTries], Opts);
+cli_opt("--read-tries" = _Arg, _Opts) ->
+  {need, 1};
+cli_opt(["--read-tries", ReadTries] = _Arg, Opts = #opts{options = Options}) ->
+  case make_integer(ReadTries) of
+    {ok, Number} when Number > 0 ->
+      _NewOpts = Opts#opts{options = [{read_tries, Number} | Options]};
+    _ ->
+      {error, bad_read_tries}
   end;
 
 cli_opt("--debug" = _Arg, Opts = #opts{options = Options}) ->
