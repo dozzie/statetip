@@ -11,7 +11,7 @@
 
 %% public interface
 -export([open/2, close/1]).
--export([append/5, read/2, recover/2, file_size/1]).
+-export([append/5, read/2, recover/2, file_size/1, position/1]).
 -export([replay/3, replay/4, fold/3]).
 -export([format_error/1]).
 
@@ -153,6 +153,16 @@ file_size({flog_write, FH} = _Handle) ->
     {ok, Position} -> {ok, Position};
     {error, Reason} -> {error, Reason}
   end.
+
+%% @doc Read current read/write position of an opened log file.
+
+-spec position(handle()) ->
+  {ok, non_neg_integer()} | {error, file:posix() | badarg}.
+
+position({flog_read, FH} = _Handle) ->
+  file:position(FH, cur);
+position({flog_write, FH} = _Handle) ->
+  file:position(FH, cur).
 
 %% @doc Append an entry to a log file opened for writing.
 
