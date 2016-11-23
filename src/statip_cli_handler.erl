@@ -193,16 +193,32 @@ handle_command(stop = Command,
   end;
 
 handle_command(log_dump = _Command,
-               _Options = #opts{options = _CLIOpts, args = _Args}) ->
-  % TODO
-  io:fwrite("log-dump is not implemented yet~n"),
-  {error, 253};
+               _Options = #opts{options = CLIOpts, args = [LogFile]}) ->
+  ReadBlock = proplists:get_value(read_block, CLIOpts),
+  ReadTries = proplists:get_value(read_tries, CLIOpts),
+  case statip_flog:open(LogFile, [read]) of
+    {ok, Handle} ->
+      % ok | {error, Reason}
+      Result = log_dump(Handle, ReadBlock, ReadTries),
+      statip_flog:close(Handle),
+      Result;
+    {error, Reason} ->
+      {error, Reason}
+  end;
 
 handle_command(log_replay = _Command,
-               _Options = #opts{options = _CLIOpts, args = _Args}) ->
-  % TODO
-  io:fwrite("log-replay is not implemented yet~n"),
-  {error, 253};
+               _Options = #opts{options = CLIOpts, args = [LogFile]}) ->
+  ReadBlock = proplists:get_value(read_block, CLIOpts),
+  ReadTries = proplists:get_value(read_tries, CLIOpts),
+  case statip_flog:open(LogFile, [read]) of
+    {ok, Handle} ->
+      % ok | {error, Reason}
+      Result = log_replay(Handle, ReadBlock, ReadTries),
+      statip_flog:close(Handle),
+      Result;
+    {error, Reason} ->
+      {error, Reason}
+  end;
 
 handle_command(log_restore = _Command,
                _Options = #opts{options = _CLIOpts, args = _Args}) ->
@@ -714,7 +730,7 @@ make_integer(String) ->
 
 %% }}}
 %%----------------------------------------------------------
-%% printing lines {{{
+%% printing lines to STDOUT and STDERR {{{
 
 %% @doc Print a string to STDOUT, ending it with a new line.
 
@@ -723,6 +739,193 @@ make_integer(String) ->
 
 println(Line) ->
   io:put_chars([Line, $\n]).
+
+%% @doc Print an error to STDERR, ending it with a new line.
+
+-spec printerr(iolist() | binary()) ->
+  ok.
+
+printerr(Line) ->
+  printerr(Line, []).
+
+%% @doc Print an error (with some context) to STDERR, ending it with a new
+%%   line.
+
+-spec printerr(iolist() | binary(), [{Name, Value}]) ->
+  ok
+  when Name :: atom(),
+       Value :: atom() | string() | binary() | integer().
+
+printerr(Line, InfoFields) ->
+  Info = [
+    [" ", format_info_field(Name, Value)] ||
+    {Name, Value} <- InfoFields
+  ],
+  case Info of
+    [] -> io:put_chars(standard_error, [Line, $\n]);
+    _  -> io:put_chars(standard_error, [Line, $:, Info, $\n])
+  end.
+
+%% @doc Helper for {@link printerr/2}.
+
+-spec format_info_field(atom(), Value) ->
+  iolist()
+  when Value :: atom() | integer().
+
+% for now there's no use for string values
+%format_info_field(Name, Value) when is_list(Value); is_binary(Value) ->
+%  case re:run(Value, "^[a-zA-Z0-9~@_+:,./-]*$", [{capture, none}]) of
+%    match ->
+%      [atom_to_list(Name), $=, Value];
+%    nomatch ->
+%      PrintValue = re:replace(Value, "[\"\\\\]", "\\\\&", [global]),
+%      [atom_to_list(Name), $=, $", PrintValue, $"]
+%  end;
+format_info_field(Name, Value) when is_integer(Value) ->
+  [atom_to_list(Name), $=, integer_to_list(Value)];
+format_info_field(Name, Value) when is_atom(Value) ->
+  [atom_to_list(Name), $=, atom_to_list(Value)].
+
+%% }}}
+%%----------------------------------------------------------
+%% log_dump() {{{
+
+%% @doc Read state log file and dump the records to STDOUT.
+%%
+%%   Workhorse for `statetipd log-dump' command.
+
+-spec log_dump(statip_flog:handle(), pos_integer(), pos_integer()) ->
+  ok | {error, ExitCode :: pos_integer()}.
+
+log_dump(Handle, ReadBlock, ReadTries) ->
+  case statip_flog:read(Handle, ReadBlock) of
+    {ok, Entry} ->
+      {ok, JSON} = encode_log_record(Entry),
+      println(JSON),
+      log_dump(Handle, ReadBlock, ReadTries);
+    eof ->
+      ok;
+    {error, bad_record} ->
+      {ok, Pos} = statip_flog:position(Handle),
+      printerr("damaged record found", [{position, Pos}]),
+      case try_recover(Handle, ReadBlock, ReadTries) of
+        {ok, Entry} ->
+          printerr("recovered"),
+          {ok, JSON} = encode_log_record(Entry),
+          println(JSON),
+          log_dump(Handle, ReadBlock, ReadTries);
+        eof ->
+          % the file has some damaged record at EOF, but not long enough for
+          % this procedure to give up, so it's a success after all
+          printerr("no more records found"),
+          ok;
+        none ->
+          {ok, Pos1} = statip_flog:position(Handle),
+          printerr("couldn't recover, giving up", [{end_position, Pos1}]),
+          {error, 1};
+        {error, Reason} -> % `Reason' is an atom
+          % most probably some I/O error
+          printerr("read error", [{reason, Reason}]),
+          {error, 2}
+      end;
+    {error, Reason} -> % `Reason' is an atom
+      % most probably some I/O error
+      printerr("read error", [{reason, Reason}]),
+      {error, 2}
+  end.
+
+%% @doc Recovery procedure for {@link log_dump/3}.
+
+-spec try_recover(statip_flog:handle(), pos_integer(), pos_integer()) ->
+  {ok, statip_flog:entry()} | eof | none | {error, file:posix()}.
+
+try_recover(Handle, ReadBlock, ReadTries) ->
+  case statip_flog:recover(Handle, ReadBlock) of
+    {ok, Entry} -> {ok, Entry};
+    none when ReadTries >= 1 -> try_recover(Handle, ReadBlock, ReadTries - 1);
+    none when ReadTries < 1 -> none;
+    eof -> eof;
+    {error, Reason} -> {error, Reason}
+  end.
+
+%% }}}
+%%----------------------------------------------------------
+%% log_replay() {{{
+
+%% @doc Replay state log file and dump the records to STDOUT.
+%%
+%%   Workhorse for `statetipd log-replay' command.
+
+-spec log_replay(statip_flog:handle(), pos_integer(), pos_integer()) ->
+  ok | {error, ExitCode :: pos_integer()}.
+
+log_replay(Handle, ReadBlock, ReadTries) ->
+  case statip_flog:replay(Handle, ReadBlock, ReadTries) of
+    {ok, Records} ->
+      statip_flog:fold(fun fold_print/4, [], Records),
+      ok;
+    {error, bad_file} ->
+      printerr("invalid first record, probably not a state log file"),
+      {error, 3};
+    {error, damaged_file} ->
+      % XXX: recover() always reads full `ReadBlock' blocks except at EOF, but
+      % then it would return `{ok, Records}', so the estimate here is precise
+      {ok, EndPos} = statip_flog:position(Handle),
+      Pos = EndPos - ReadBlock * ReadTries,
+      printerr("file damaged beyond recovery", [{position, Pos}]),
+      {error, 1};
+    {error, Reason} ->
+      printerr("read error", [{reason, Reason}]),
+      {error, 2}
+  end.
+
+%% @doc {@link statip_flog:fold/3} callback for {@link log_replay/3}.
+
+fold_print({GroupName, GroupOrigin} = _Key, GroupType, Values, Acc) ->
+  lists:foreach(
+    fun(V) ->
+      {ok, JSON} = encode_log_record({GroupType, GroupName, GroupOrigin, V}),
+      println(JSON)
+    end,
+    Values
+  ),
+  Acc.
+
+%% }}}
+%%----------------------------------------------------------
+%% encode_log_record() {{{
+
+%% @doc Encode a record from log file as a JSON.
+
+-spec encode_log_record(statip_flog:entry()) ->
+  {ok, iolist()} | {error, badarg}.
+
+encode_log_record({GroupType, GroupName, GroupOrigin, Value} = _Entry)
+when GroupType == related; GroupType == unrelated ->
+  statip_json:encode([
+    {type, value},
+    {related, (GroupType == related)} |
+    statip_value:to_struct(GroupName, GroupOrigin, Value, [full])
+  ]);
+encode_log_record({clear, GroupName, GroupOrigin, Key} = _Entry) ->
+  statip_json:encode([
+    {type, clear},
+    {group_name, GroupName},
+    {group_origin, GroupOrigin},
+    {key, Key}
+  ]);
+encode_log_record({clear, GroupName, GroupOrigin} = _Entry) ->
+  statip_json:encode([
+    {type, clear},
+    {group_name, GroupName},
+    {group_origin, GroupOrigin}
+  ]);
+encode_log_record({rotate, GroupName, GroupOrigin} = _Entry) ->
+  statip_json:encode([
+    {type, rotate},
+    {group_name, GroupName},
+    {group_origin, GroupOrigin}
+  ]).
 
 %% }}}
 %%----------------------------------------------------------

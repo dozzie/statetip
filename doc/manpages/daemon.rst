@@ -129,11 +129,18 @@ option as the target daemon's address. Similarly, ``start`` uses
     objects, one per line. A log file can be restored from such a dump with
     ``statetipd log-restore`` command.
 
+    Any problems (e.g. damaged records) encountered during dumping a log file
+    are printed to *STDERR*.
+
 .. describe:: statetipd log-replay <logfile> [--read-block <bytes>] [--read-tries <count>]
 
     Replay a state log file and print the end result to *STDOUT* as a sequence
     of JSON objects, one per line. This command is similar to ``statetipd
     log-dump``, except it only prints the most recent values.
+
+    Problems (e.g. damaged records) encountered during replaying a log
+    file that the procedure recovered from are suppressed. To get a detailed
+    report, use ``statetipd log-dump`` command.
 
 .. describe:: statetipd log-restore <logfile> <dump-file>
 
