@@ -194,6 +194,10 @@ handle_command(stop = Command,
 
 handle_command(log_dump = _Command,
                _Options = #opts{options = CLIOpts, args = [LogFile]}) ->
+  % in older Erlang releases $ERL_CRASH_DUMP_SECONDS set to 0 doesn't disable
+  % writing crash dump
+  os:putenv("ERL_CRASH_DUMP_SECONDS", "0"),
+  os:putenv("ERL_CRASH_DUMP", "/dev/null"),
   ReadBlock = proplists:get_value(read_block, CLIOpts),
   ReadTries = proplists:get_value(read_tries, CLIOpts),
   case statip_flog:open(LogFile, [read]) of
@@ -208,6 +212,10 @@ handle_command(log_dump = _Command,
 
 handle_command(log_replay = _Command,
                _Options = #opts{options = CLIOpts, args = [LogFile]}) ->
+  % in older Erlang releases $ERL_CRASH_DUMP_SECONDS set to 0 doesn't disable
+  % writing crash dump
+  os:putenv("ERL_CRASH_DUMP_SECONDS", "0"),
+  os:putenv("ERL_CRASH_DUMP", "/dev/null"),
   ReadBlock = proplists:get_value(read_block, CLIOpts),
   ReadTries = proplists:get_value(read_tries, CLIOpts),
   case statip_flog:open(LogFile, [read]) of
