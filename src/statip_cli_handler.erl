@@ -410,8 +410,6 @@ read_config_file(ConfigFile) ->
   end.
 
 %% @doc Configure environment (Erlang, Indira, main app) from loaded config.
-%%
-%% @todo Configure logging.
 
 -spec setup_applications(config(), #opts{}) ->
   ok | {error, term()}.
@@ -512,6 +510,12 @@ parse_listen_spec(Spec) ->
 %% }}}
 %%----------------------------------------------------------
 %% setup_logging() {{{
+
+%% @doc Configure Erlang logging.
+%%   This function also starts SASL application if requested.
+
+-spec setup_logging(config(), #opts{}) ->
+  ok | {error, term()}.
 
 setup_logging(Config, _Options = #opts{options = CLIOpts}) ->
   case proplists:get_bool(debug, CLIOpts) of
