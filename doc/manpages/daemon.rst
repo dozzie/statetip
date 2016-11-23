@@ -17,10 +17,10 @@ Synopsis
     statetipd [options] dist-erl-stop
     statetipd [options] list [<name> [<origin> [<key>]]]
     statetipd [options] delete <name> [<origin> [<key>]]
-    statetipd [options] log-dump [<logfile>]
-    statetipd [options] log-replay [<logfile>]
-    statetipd [options] log-restore [<logfile>] <dump-file>
-    statetipd [options] log-compact [<logfile>]
+    statetipd [options] log-dump <logfile>
+    statetipd [options] log-replay <logfile>
+    statetipd [options] log-restore <logfile> <dump-file>
+    statetipd [options] log-compact <logfile>
 
 Description
 ===========
@@ -123,32 +123,28 @@ option as the target daemon's address. Similarly, ``start`` uses
     ``null`` origin is encoded as an empty string, so the command is
     ``statetipd delete <name> "" [<key>]``.
 
-.. describe:: statetipd log-dump [<logfile>]
+.. describe:: statetipd log-dump <logfile>
 
     Print the content of a state log file to *STDOUT* as a sequence of JSON
     objects, one per line. A log file can be restored from such a dump with
     ``statetipd log-restore`` command.
 
-    **TODO**: use ``--config``
+    **TODO**: options for read block size, retries count
 
-.. describe:: statetipd log-replay [<logfile>]
+.. describe:: statetipd log-replay <logfile>
 
     Replay a state log file and print the end result to *STDOUT* as a sequence
     of JSON objects, one per line. This command is similar to ``statetipd
     log-dump``, except it only prints the most recent values.
 
-    **TODO**: use ``--config``
-
     **TODO**: options for read block size, retries count
 
-.. describe:: statetipd log-restore [<logfile>] <dump-file>
+.. describe:: statetipd log-restore <logfile> <dump-file>
 
     Create a state log file from a dump that was created with ``statetipd
     log-dump`` or ``statetipd log-replay``.
 
-    **TODO**: use ``--config``
-
-.. describe:: statetipd log-compact [<logfile>]
+.. describe:: statetipd log-compact <logfile>
 
     Compact the specified state log file. Similar in effect to ``statetipd
     log-replay`` followed by ``statetipd log-restore``.
@@ -156,7 +152,7 @@ option as the target daemon's address. Similarly, ``start`` uses
     This command is executed in the calling process, not in the daemon
     instance, unlike similar command ``statetipd compact-statelog``.
 
-    **TODO**: use ``--config``
+    **TODO**: options for read block size, retries count
 
 Options
 -------

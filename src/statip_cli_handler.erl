@@ -78,21 +78,30 @@ parse_arguments(Args, [DefAdminSocket, DefConfig] = _Defaults) ->
     {ok, _Options = #opts{op = delete, args = [_,_,_,_|_]}} ->
       {error, too_many_args};
 
-    {ok, _Options = #opts{op = log_dump, args = [_,_|_]}} ->
-      {error, too_many_args};
-    {ok, _Options = #opts{op = log_replay, args = [_,_|_]}} ->
-      {error, too_many_args};
-    {ok, _Options = #opts{op = log_restore, args = []}} ->
-      {error, too_little_args};
-    {ok, _Options = #opts{op = log_restore, args = [_,_,_|_]}} ->
-      {error, too_many_args};
-    {ok, _Options = #opts{op = log_compact, args = [_,_|_]}} ->
-      {error, too_many_args};
-
-    {ok, Options = #opts{op = log_dump   }} -> {ok, log_dump,    Options};
-    {ok, Options = #opts{op = log_replay }} -> {ok, log_replay,  Options};
-    {ok, Options = #opts{op = log_restore}} -> {ok, log_restore, Options};
-    {ok, Options = #opts{op = log_compact}} -> {ok, log_compact, Options};
+    {ok, Options = #opts{op = log_dump, args = OpArgs}} ->
+      case OpArgs of
+        [_]     -> {ok, log_dump, Options};
+        [_,_|_] -> {error, too_many_args};
+        _       -> {error, too_little_args}
+      end;
+    {ok, Options = #opts{op = log_replay, args = OpArgs}} ->
+      case OpArgs of
+        [_]     -> {ok, log_replay, Options};
+        [_,_|_] -> {error, too_many_args};
+        _       -> {error, too_little_args}
+      end;
+    {ok, Options = #opts{op = log_restore, args = OpArgs}} ->
+      case OpArgs of
+        [_,_]     -> {ok, log_restore, Options};
+        [_,_,_|_] -> {error, too_many_args};
+        _         -> {error, too_little_args}
+      end;
+    {ok, Options = #opts{op = log_compact, args = OpArgs}} ->
+      case OpArgs of
+        [_]     -> {ok, log_compact, Options};
+        [_,_|_] -> {error, too_many_args};
+        _       -> {error, too_little_args}
+      end;
 
     {ok, _Options = #opts{op = Command, args = [_|_]}}
     when Command /= list, Command /= delete ->
@@ -367,10 +376,10 @@ help(ScriptName) ->
     "  ", ScriptName, " [--socket <path>] list [<name> [<origin> [<key>]]]\n",
     "  ", ScriptName, " [--socket <path>] delete <name> [<origin> [<key>]]\n",
     "Log file management:\n",
-    "  ", ScriptName, " log-dump [<logfile>]\n",
-    "  ", ScriptName, " log-replay [<logfile>]\n",
-    "  ", ScriptName, " log-restore [<logfile>] <dump-file>\n",
-    "  ", ScriptName, " log-compact [<logfile>]\n",
+    "  ", ScriptName, " log-dump <logfile>\n",
+    "  ", ScriptName, " log-replay <logfile>\n",
+    "  ", ScriptName, " log-restore <logfile> <dump-file>\n",
+    "  ", ScriptName, " log-compact <logfile>\n",
     ""
   ].
 
