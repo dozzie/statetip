@@ -29,6 +29,10 @@
 % module returns; this can't be easily moved to a config/option
 -define(ADMIN_SOCKET_TYPE, indira_unix).
 
+-define(EXIT_FORMAT, 1).
+-define(EXIT_READ,   2).
+-define(EXIT_WRITE,  3).
+
 -type config_value() :: binary() | number() | boolean().
 -type config_key() :: binary().
 -type config() :: [{config_key(), config_value() | config()}].
@@ -202,13 +206,13 @@ handle_command(log_dump = _Command,
   ReadTries = proplists:get_value(read_tries, CLIOpts),
   case statip_flog:open(LogFile, [read]) of
     {ok, Handle} ->
-      % ok | {error, Reason}
+      % ok | {error, ExitCode}
       Result = log_dump(Handle, ReadBlock, ReadTries),
       statip_flog:close(Handle),
       Result;
     {error, Reason} -> % `Reason' is an atom
       printerr("can't open log file for reading", [{reason, Reason}]),
-      {error, 2}
+      {error, ?EXIT_READ}
   end;
 
 handle_command(log_replay = _Command,
@@ -221,13 +225,13 @@ handle_command(log_replay = _Command,
   ReadTries = proplists:get_value(read_tries, CLIOpts),
   case statip_flog:open(LogFile, [read]) of
     {ok, Handle} ->
-      % ok | {error, Reason}
+      % ok | {error, ExitCode}
       Result = log_replay(Handle, ReadBlock, ReadTries),
       statip_flog:close(Handle),
       Result;
     {error, Reason} -> % `Reason' is an atom
       printerr("can't open log file for reading", [{reason, Reason}]),
-      {error, 2}
+      {error, ?EXIT_READ}
   end;
 
 handle_command(log_restore = _Command,
@@ -245,7 +249,7 @@ handle_command(log_compact = _Command,
       case replay(ReadHandle, ReadBlock, ReadTries) of
         {ok, Records} ->
           statip_flog:close(ReadHandle),
-          % ok | {error, Reason}
+          % ok | {error, ExitCode}
           log_write_back(LogFile, Records);
         {error, ExitCode} ->
           statip_flog:close(ReadHandle),
@@ -253,7 +257,7 @@ handle_command(log_compact = _Command,
       end;
     {error, Reason} -> % `Reason' is an atom
       printerr("can't open log file for reading", [{reason, Reason}]),
-      {error, 2}
+      {error, ?EXIT_READ}
   end.
 
 %% }}}
@@ -846,16 +850,16 @@ log_dump(Handle, ReadBlock, ReadTries) ->
         none ->
           {ok, Pos1} = statip_flog:position(Handle),
           printerr("couldn't recover, giving up", [{end_position, Pos1}]),
-          {error, 1};
+          {error, ?EXIT_FORMAT};
         {error, Reason} -> % `Reason' is an atom
           % most probably some I/O error
           printerr("read error", [{reason, Reason}]),
-          {error, 2}
+          {error, ?EXIT_READ}
       end;
     {error, Reason} -> % `Reason' is an atom
       % most probably some I/O error
       printerr("read error", [{reason, Reason}]),
-      {error, 2}
+      {error, ?EXIT_READ}
   end.
 
 %% @doc Recovery procedure for {@link log_dump/3}.
@@ -928,11 +932,11 @@ log_write_back(LogFile, Records) ->
       catch
         error:Reason -> % `Reason' is an atom
           printerr("record write error", [{reason, Reason}]),
-          {error, 4}
+          {error, ?EXIT_WRITE}
       end;
     {error, Reason} ->
       printerr("can't open log file for writing", [{reason, Reason}]),
-      {error, 4}
+      {error, ?EXIT_WRITE}
   end.
 
 %% @doc {@link statip_flog:fold/3} callback for {@link log_write_back/2}.
@@ -971,17 +975,17 @@ replay(Handle, ReadBlock, ReadTries) ->
       {ok, Records};
     {error, bad_file} ->
       printerr("invalid first record, probably not a state log file"),
-      {error, 3};
+      {error, ?EXIT_FORMAT};
     {error, damaged_file} ->
       % XXX: recover() always reads full `ReadBlock' blocks except at EOF, but
       % then it would return `{ok, Records}', so the estimate here is precise
       {ok, EndPos} = statip_flog:position(Handle),
       Pos = EndPos - ReadBlock * ReadTries,
       printerr("file damaged beyond recovery", [{position, Pos}]),
-      {error, 1};
+      {error, ?EXIT_FORMAT};
     {error, Reason} ->
       printerr("read error", [{reason, Reason}]),
-      {error, 2}
+      {error, ?EXIT_READ}
   end.
 
 %% }}}
