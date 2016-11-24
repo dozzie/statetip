@@ -237,10 +237,24 @@ handle_command(log_restore = _Command,
   {error, 253};
 
 handle_command(log_compact = _Command,
-               _Options = #opts{options = _CLIOpts, args = _Args}) ->
-  % TODO
-  io:fwrite("log-compact is not implemented yet~n"),
-  {error, 253}.
+               _Options = #opts{options = CLIOpts, args = [LogFile]}) ->
+  ReadBlock = proplists:get_value(read_block, CLIOpts),
+  ReadTries = proplists:get_value(read_tries, CLIOpts),
+  case statip_flog:open(LogFile, [read]) of
+    {ok, ReadHandle} ->
+      case replay(ReadHandle, ReadBlock, ReadTries) of
+        {ok, Records} ->
+          statip_flog:close(ReadHandle),
+          % ok | {error, Reason}
+          log_write_back(LogFile, Records);
+        {error, ExitCode} ->
+          statip_flog:close(ReadHandle),
+          {error, ExitCode}
+      end;
+    {error, Reason} -> % `Reason' is an atom
+      printerr("can't open log file for reading", [{reason, Reason}]),
+      {error, 2}
+  end.
 
 %% }}}
 %%----------------------------------------------------------
@@ -864,16 +878,97 @@ try_recover(Handle, ReadBlock, ReadTries) ->
 
 %% @doc Replay state log file and dump the records to STDOUT.
 %%
-%%   Workhorse for `statetipd log-replay' command.
+%%   Body for `statetipd log-replay' command.
+%%
+%% @see replay/3
 
 -spec log_replay(statip_flog:handle(), pos_integer(), pos_integer()) ->
   ok | {error, ExitCode :: pos_integer()}.
 
 log_replay(Handle, ReadBlock, ReadTries) ->
-  case statip_flog:replay(Handle, ReadBlock, ReadTries) of
+  case replay(Handle, ReadBlock, ReadTries) of
     {ok, Records} ->
       statip_flog:fold(fun fold_print/4, [], Records),
       ok;
+    {error, ExitCode} ->
+      {error, ExitCode}
+  end.
+
+%% @doc {@link statip_flog:fold/3} callback for {@link log_replay/3}.
+
+fold_print({GroupName, GroupOrigin} = _Key, GroupType, Values, Acc) ->
+  Acc1 = {GroupType, GroupName, GroupOrigin},
+  lists:foldl(fun fold_print/2, Acc1, Values),
+  Acc.
+
+%% @doc {@link lists:foldl/3} callback for {@link fold_print/4}.
+
+fold_print(Value, {Type, Name, Origin} = Acc) ->
+  {ok, JSON} = encode_log_record({Type, Name, Origin, Value}),
+  println(JSON),
+  Acc.
+
+%% }}}
+%%----------------------------------------------------------
+%% log_write_back() {{{
+
+%% @doc Write values from replayed log file to a log file.
+%%
+%%   Function truncates the target log file.
+
+-spec log_write_back(file:filename(), statip_flog:records()) ->
+  ok | {error, ExitCode :: pos_integer()}.
+
+log_write_back(LogFile, Records) ->
+  case statip_flog:open(LogFile, [write, truncate]) of
+    {ok, WriteHandle} ->
+      try
+        statip_flog:fold(fun fold_write/4, WriteHandle, Records),
+        ok
+      catch
+        error:Reason -> % `Reason' is an atom
+          printerr("record write error", [{reason, Reason}]),
+          {error, 4}
+      end;
+    {error, Reason} ->
+      printerr("can't open log file for writing", [{reason, Reason}]),
+      {error, 4}
+  end.
+
+%% @doc {@link statip_flog:fold/3} callback for {@link log_write_back/2}.
+%%
+%%   <i>NOTE</i>: On write errors this function dies with the reason.
+
+fold_write({GroupName, GroupOrigin} = _Key, GroupType, Values, Handle) ->
+  Acc = {Handle, GroupName, GroupOrigin, GroupType},
+  lists:foldl(fun fold_write/2, Acc, Values),
+  Handle.
+
+%% @doc {@link lists:foldl/3} callback for {@link fold_write/4}.
+%%
+%%   <i>NOTE</i>: On write errors this function dies with the reason.
+
+fold_write(Value, {Handle, Name, Origin, Type} = Acc) ->
+  case statip_flog:append(Handle, Name, Origin, Value, Type) of
+    ok -> Acc;
+    {error, Reason} -> erlang:error(Reason)
+  end.
+
+%% }}}
+%%----------------------------------------------------------
+%% replay() {{{
+
+%% @doc Replay state log file.
+%%
+%%   Function prints error messages to STDERR.
+
+-spec replay(statip_flog:handle(), pos_integer(), pos_integer()) ->
+  {ok, statip_flog:records()} | {error, ExitCode :: pos_integer()}.
+
+replay(Handle, ReadBlock, ReadTries) ->
+  case statip_flog:replay(Handle, ReadBlock, ReadTries) of
+    {ok, Records} ->
+      {ok, Records};
     {error, bad_file} ->
       printerr("invalid first record, probably not a state log file"),
       {error, 3};
@@ -888,18 +983,6 @@ log_replay(Handle, ReadBlock, ReadTries) ->
       printerr("read error", [{reason, Reason}]),
       {error, 2}
   end.
-
-%% @doc {@link statip_flog:fold/3} callback for {@link log_replay/3}.
-
-fold_print({GroupName, GroupOrigin} = _Key, GroupType, Values, Acc) ->
-  Acc1 = {GroupType, GroupName, GroupOrigin},
-  lists:foldl(fun fold_print/2, Acc1, Values),
-  Acc.
-
-fold_print(Value, {Type, Name, Origin} = Acc) ->
-  {ok, JSON} = encode_log_record({Type, Name, Origin, Value}),
-  println(JSON),
-  Acc.
 
 %% }}}
 %%----------------------------------------------------------
