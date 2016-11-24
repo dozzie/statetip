@@ -996,8 +996,7 @@ replay(Handle, ReadBlock, ReadTries) ->
 encode_log_record({GroupType, GroupName, GroupOrigin, Value} = _Entry)
 when GroupType == related; GroupType == unrelated ->
   statip_json:encode([
-    {type, value},
-    {related, (GroupType == related)} |
+    {type, GroupType} |
     statip_value:to_struct(GroupName, GroupOrigin, Value, [full])
   ]);
 encode_log_record({clear, GroupName, GroupOrigin, Key} = _Entry) ->
