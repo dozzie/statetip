@@ -1003,21 +1003,21 @@ when GroupType == related; GroupType == unrelated ->
 encode_log_record({clear, GroupName, GroupOrigin, Key} = _Entry) ->
   statip_json:encode([
     {type, clear},
-    {group_name, GroupName},
-    {group_origin, GroupOrigin},
+    {name, GroupName},
+    {origin, GroupOrigin},
     {key, Key}
   ]);
 encode_log_record({clear, GroupName, GroupOrigin} = _Entry) ->
   statip_json:encode([
     {type, clear},
-    {group_name, GroupName},
-    {group_origin, GroupOrigin}
+    {name, GroupName},
+    {origin, GroupOrigin}
   ]);
 encode_log_record({rotate, GroupName, GroupOrigin} = _Entry) ->
   statip_json:encode([
     {type, rotate},
-    {group_name, GroupName},
-    {group_origin, GroupOrigin}
+    {name, GroupName},
+    {origin, GroupOrigin}
   ]).
 
 %% }}}
