@@ -235,10 +235,25 @@ handle_command(log_replay = _Command,
   end;
 
 handle_command(log_restore = _Command,
-               _Options = #opts{options = _CLIOpts, args = _Args}) ->
-  % TODO
-  io:fwrite("log-restore is not implemented yet~n"),
-  {error, 253};
+               _Options = #opts{args = [LogFile, DumpFile]}) ->
+  case file:open(DumpFile, [read, raw]) of
+    {ok, ReadHandle} ->
+      case statip_flog:open(LogFile, [write, truncate]) of
+        {ok, WriteHandle} ->
+          % ok | {error, ExitCode}
+          Result = log_restore(ReadHandle, WriteHandle),
+          file:close(ReadHandle),
+          statip_flog:close(WriteHandle),
+          Result;
+        {error, Reason} -> % `Reason' is an atom
+          printerr("can't open log file for writing", [{reason, Reason}]),
+          file:close(ReadHandle),
+          {error, ?EXIT_WRITE}
+      end;
+    {error, Reason} -> % `Reason' is an atom
+      printerr("can't open dump file for reading", [{reason, Reason}]),
+      {error, ?EXIT_READ}
+  end;
 
 handle_command(log_compact = _Command,
                _Options = #opts{options = CLIOpts, args = [LogFile]}) ->
@@ -914,6 +929,50 @@ fold_print(Value, {Type, Name, Origin} = Acc) ->
 
 %% }}}
 %%----------------------------------------------------------
+%% log_restore() {{{
+
+%% @doc Read a log dump and write it to a state log file.
+%%
+%%   Body for `statetipd log-restore' command.
+%%
+%% @see log_restore/3
+
+-spec log_restore(file:io_device(), statip_flog:handle()) ->
+  ok | {error, ExitCode :: pos_integer()}.
+
+log_restore(ReadHandle, WriteHandle) ->
+  log_restore(ReadHandle, WriteHandle, 1).
+
+%% @doc Workhorse for {@link log_restore/2}.
+
+-spec log_restore(file:io_device(), statip_flog:handle(), pos_integer()) ->
+  ok | {error, ExitCode :: pos_integer()}.
+
+log_restore(ReadHandle, WriteHandle, LineNo) ->
+  case file:read_line(ReadHandle) of
+    {ok, Line} ->
+      case decode_log_record(Line) of
+        {ok, Record} ->
+          case statip_flog:append(WriteHandle, Record) of
+            ok ->
+              log_restore(ReadHandle, WriteHandle, LineNo + 1);
+            {error, Reason} ->
+              printerr("write error", [{reason, Reason}, {line, LineNo}]),
+              {error, ?EXIT_WRITE}
+          end;
+        {error, badarg} ->
+          printerr("invalid record", [{line, LineNo}]),
+          {error, ?EXIT_FORMAT}
+      end;
+    eof ->
+      ok;
+    {error, Reason} ->
+      printerr("read error", [{reason, Reason}, {line, LineNo}]),
+      {error, ?EXIT_READ}
+  end.
+
+%% }}}
+%%----------------------------------------------------------
 %% log_write_back() {{{
 
 %% @doc Write values from replayed log file to a log file.
@@ -1023,8 +1082,52 @@ encode_log_record({rotate, GroupName, GroupOrigin} = _Entry) ->
     {origin, undef_null(GroupOrigin)}
   ]).
 
+%% @doc Decode a record from JSON string.
+
+-spec decode_log_record(string()) ->
+  {ok, statip_flog:entry()} | {error, badarg}.
+
+decode_log_record(JSON) ->
+  case statip_json:decode(JSON) of
+    {ok, [{<<"key">>, Key}, {<<"name">>, Name}, {<<"origin">>, Origin},
+           {<<"type">>, <<"clear">>}]}
+    when is_binary(Name), (is_binary(Origin) orelse Origin == null),
+         is_binary(Key) ->
+      {ok, {clear, Name, null_undef(Origin), Key}};
+
+    {ok, [{<<"name">>, Name}, {<<"origin">>, Origin},
+           {<<"type">>, <<"clear">>}]}
+    when is_binary(Name), (is_binary(Origin) orelse Origin == null) ->
+      {ok, {clear, Name, null_undef(Origin)}};
+
+    {ok, [{<<"name">>, Name}, {<<"origin">>, Origin},
+           {<<"type">>, <<"rotate">>}]}
+    when is_binary(Name), (is_binary(Origin) orelse Origin == null) ->
+      {ok, {rotate, Name, null_undef(Origin)}};
+
+    {ok, Struct} ->
+      try {proplists:get_value(<<"type">>, Struct),
+           statip_value:from_struct(Struct)} of
+        {<<"related">>, {Name, Origin, Value}} ->
+          {ok, {related, Name, null_undef(Origin), Value}};
+        {<<"unrelated">>, {Name, Origin, Value}} ->
+          {ok, {unrelated, Name, null_undef(Origin), Value}};
+        _ ->
+          {error, badarg}
+      catch
+        _:_ ->
+          {error, badarg}
+      end;
+
+    {error, badarg} ->
+      {error, badarg}
+  end.
+
 undef_null(undefined = _Value) -> null;
 undef_null(Value) -> Value.
+
+null_undef(null = _Value) -> undefined;
+null_undef(Value) -> Value.
 
 %% }}}
 %%----------------------------------------------------------
