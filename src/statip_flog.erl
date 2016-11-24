@@ -102,25 +102,60 @@
 
 %% @doc Open a log file for reading or writing.
 
--spec open(file:filename(), [Option]) ->
+-spec open(file:filename(), Options :: [Option]) ->
   {ok, handle()} | {error, file:posix() | badarg | system_limit}
-  when Option :: read | write.
+  when Option :: read | write | truncate.
 
-open(Filename, [read] = _Mode) ->
-  case file:open(Filename, [read, raw, binary]) of
-    {ok, Handle} ->
-      {ok, {flog_read, Handle}};
-    {error, Reason} ->
-      {error, Reason}
-  end;
-open(Filename, [write] = _Mode) ->
-  case file:open(Filename, [append, raw]) of
-    {ok, Handle} ->
-      file:position(Handle, eof), % so the file_size() works on a fresh handle
-      {ok, {flog_write, Handle}};
-    {error, Reason} ->
-      {error, Reason}
+open(Filename, Options) ->
+  case open_options(Options, {undefined, false}) of
+    {ok, {Mode, Truncate}} ->
+      OpenOptions = case Mode of
+        read -> [read, raw, binary];
+        write -> [append, raw]
+      end,
+      case file:open(Filename, OpenOptions) of
+        {ok, Handle} when Mode == read ->
+          {ok, {flog_read, Handle}};
+        {ok, Handle} when Mode == write, not Truncate ->
+          % initially position is 0, which makes the `file_size()' return
+          % wrong size
+          file:position(Handle, eof),
+          {ok, {flog_write, Handle}};
+        {ok, Handle} when Mode == write, Truncate ->
+          file:position(Handle, bof),
+          ok = file:truncate(Handle),
+          {ok, {flog_write, Handle}};
+        {error, Reason} ->
+          {error, Reason}
+      end;
+    {error, badarg} ->
+      {error, badarg}
   end.
+
+%%----------------------------------------------------------
+%% open_options() {{{
+
+%% @doc Extract known options from a proplist.
+
+-spec open_options([term()], {undefined | read | write, boolean()}) ->
+    {ok, {Mode :: read | write, Truncate :: boolean()}}
+  | {error, badarg}.
+
+open_options([], {undefined = _Mode, _Truncate}) ->
+  {error, badarg};
+open_options([], {Mode, Truncate}) ->
+  {ok, {Mode, Truncate}};
+open_options([write | Rest], {_Mode, Truncate}) ->
+  open_options(Rest, {write, Truncate});
+open_options([read | Rest], {_Mode, Truncate}) ->
+  open_options(Rest, {read, Truncate});
+open_options([truncate | Rest], {Mode, _Truncate}) ->
+  open_options(Rest, {Mode, true});
+open_options([_Any | _], {_Mode, _Truncate}) ->
+  {error, badarg}.
+
+%% }}}
+%%----------------------------------------------------------
 
 %% @doc Close a log file handle.
 
