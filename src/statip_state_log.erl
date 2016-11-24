@@ -291,7 +291,8 @@ handle_info({compaction_finished, Ref, Result} = _Message,
       {ok, NewSize} = statip_flog:file_size(NewLogH),
       statip_log:info("log compacted", [
         {old_size, OldSize},
-        {new_size, NewSize}
+        {new_size, NewSize},
+        {log_file, LogFile}
       ]),
       NewState = State#state{
         compaction = undefined,
