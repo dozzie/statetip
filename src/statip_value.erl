@@ -353,8 +353,53 @@ undef_null(Value) -> Value.
 -spec from_struct(statip_json:struct()) ->
   {name(), origin(), #value{}}.
 
-from_struct(_Struct) ->
-  {<<"TODO">>, <<"TODO">>, #value{}}.
+from_struct(Struct) ->
+  [{created,   Created},
+    {expires,  Expires},
+    {info,     Info},
+    {key,      Key},
+    {name,     GroupName},
+    {origin,   GroupOrigin},
+    {severity, Severity},
+    {sort_key, SortKey},
+    {state,    State}] = lists:sort(filter_fields(Struct)),
+  true = is_integer(Created),
+  true = is_integer(Expires),
+  % no test for `Info'
+  true = is_binary(Key),
+  true = is_binary(GroupName),
+  true = is_binary(GroupOrigin) orelse GroupOrigin == null,
+  true = (Severity == <<"expected">> orelse
+          Severity == <<"warning">> orelse
+          Severity == <<"error">>),
+  true = is_binary(SortKey) orelse SortKey == null,
+  true = is_binary(State) orelse State == null,
+  Value = #value{
+    key      = Key,
+    sort_key = null_undef(SortKey),
+    state    = null_undef(State),
+    severity = binary_to_atom(Severity, utf8),
+    info     = Info,
+    created  = Created,
+    expires  = Expires
+  },
+  {GroupName, null_undef(GroupOrigin), Value}.
+
+null_undef(null = _Value) -> undefined;
+null_undef(Value) -> Value.
+
+filter_fields([{<<"related">>,  V} | Rest]) -> [{related,  V} | filter_fields(Rest)];
+filter_fields([{<<"name">>,     V} | Rest]) -> [{name,     V} | filter_fields(Rest)];
+filter_fields([{<<"origin">>,   V} | Rest]) -> [{origin,   V} | filter_fields(Rest)];
+filter_fields([{<<"key">>,      V} | Rest]) -> [{key,      V} | filter_fields(Rest)];
+filter_fields([{<<"sort_key">>, V} | Rest]) -> [{sort_key, V} | filter_fields(Rest)];
+filter_fields([{<<"state">>,    V} | Rest]) -> [{state,    V} | filter_fields(Rest)];
+filter_fields([{<<"severity">>, V} | Rest]) -> [{severity, V} | filter_fields(Rest)];
+filter_fields([{<<"info">>,     V} | Rest]) -> [{info,     V} | filter_fields(Rest)];
+filter_fields([{<<"created">>,  V} | Rest]) -> [{created,  V} | filter_fields(Rest)];
+filter_fields([{<<"expires">>,  V} | Rest]) -> [{expires,  V} | filter_fields(Rest)];
+filter_fields([{_, _} | Rest]) -> filter_fields(Rest);
+filter_fields([]) -> [].
 
 %% @doc Encode a value to JSON string.
 %%
