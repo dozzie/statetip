@@ -33,8 +33,8 @@
 -type report() :: [{Tag :: term(), Data :: term()} | term()]
                   | string() | term().
 
--type event_message() :: {pid(), Format :: string(), Args :: [term()]}.
--type event_report()  :: {pid(), report_type(), report()}.
+-type event_message() :: {pid() | atom(), Format :: string(), Args :: [term()]}.
+-type event_report()  :: {pid() | atom(), report_type(), report()}.
 
 -type event() ::
     {type_message(), GroupLeader :: pid(), event_message()}
@@ -149,16 +149,16 @@ format_event(LogType, LogData) ->
   case level_type(LogType) of
     {Level, format = _Type} ->
       case format(LogData) of
-        {ok, Pid, Line} ->
-          LogPrefix = log_prefix(Timestamp, Level, Pid),
+        {ok, Process, Line} ->
+          LogPrefix = log_prefix(Timestamp, Level, Process),
           {ok, [LogPrefix, " ", Line]};
         {error, _Reason} ->
           skip
       end;
     {Level, report = _Type} ->
       case report(LogData) of
-        {ok, Pid, Line} ->
-          LogPrefix = log_prefix(Timestamp, Level, Pid),
+        {ok, Process, Line} ->
+          LogPrefix = log_prefix(Timestamp, Level, Process),
           {ok, [LogPrefix, " ", Line]};
         {error, _Reason} ->
           skip
@@ -169,12 +169,15 @@ format_event(LogType, LogData) ->
 
 %% @doc Build a prefix for a log line.
 
--spec log_prefix(integer(), error | warning | info, pid()) ->
+-spec log_prefix(integer(), error | warning | info, pid() | atom()) ->
   iolist().
 
-log_prefix(Time, Level, Pid) ->
+log_prefix(Time, Level, Process) when is_atom(Process) ->
   [integer_to_list(Time), " ", atom_to_list(Level), " ",
-    "[", os:getpid(), "] ", pid_to_list(Pid)].
+    "[", os:getpid(), "] ", atom_to_list(Process)];
+log_prefix(Time, Level, Process) when is_pid(Process) ->
+  [integer_to_list(Time), " ", atom_to_list(Level), " ",
+    "[", os:getpid(), "] ", pid_to_list(Process)].
 
 %% @doc Convert a tag to a log level and its type.
 
@@ -194,12 +197,12 @@ level_type(_) -> {error, badarg}.
 %% @doc Fill a format string with data, making it a log line.
 
 -spec format(event_message()) ->
-  {ok, pid(), iolist()} | {error, badarg | term()}.
+  {ok, pid() | atom(), iolist()} | {error, badarg | term()}.
 
-format({Pid, Format, Args} = _LogData) ->
+format({Process, Format, Args} = _LogData) ->
   try
     Line = io_lib:format(Format, Args),
-    {ok, Pid, Line}
+    {ok, Process, Line}
   catch
     error:Reason ->
       {error, Reason}
@@ -210,15 +213,15 @@ format(_LogData) ->
 %% @doc Format a report, making it a log line.
 
 -spec report(event_report()) ->
-  {ok, pid(), iolist()} | {error, badarg}.
+  {ok, pid() | atom(), iolist()} | {error, badarg}.
 
-report({Pid, Type, Report} = _LogData) ->
+report({Process, Type, Report} = _LogData) ->
   Line = [
     io_lib:print(Type, 1, ?MAX_LINE_LENGTH, -1),
     " ",
     io_lib:print(Report, 1, ?MAX_LINE_LENGTH, -1)
   ],
-  {ok, Pid, Line};
+  {ok, Process, Line};
 report(_LogData) ->
   {error, badarg}.
 
