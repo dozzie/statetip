@@ -1003,21 +1003,24 @@ encode_log_record({clear, GroupName, GroupOrigin, Key} = _Entry) ->
   statip_json:encode([
     {type, clear},
     {name, GroupName},
-    {origin, GroupOrigin},
+    {origin, undef_null(GroupOrigin)},
     {key, Key}
   ]);
 encode_log_record({clear, GroupName, GroupOrigin} = _Entry) ->
   statip_json:encode([
     {type, clear},
     {name, GroupName},
-    {origin, GroupOrigin}
+    {origin, undef_null(GroupOrigin)}
   ]);
 encode_log_record({rotate, GroupName, GroupOrigin} = _Entry) ->
   statip_json:encode([
     {type, rotate},
     {name, GroupName},
-    {origin, GroupOrigin}
+    {origin, undef_null(GroupOrigin)}
   ]).
+
+undef_null(undefined = _Value) -> null;
+undef_null(Value) -> Value.
 
 %% }}}
 %%----------------------------------------------------------
