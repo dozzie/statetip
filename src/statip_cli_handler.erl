@@ -892,13 +892,13 @@ log_replay(Handle, ReadBlock, ReadTries) ->
 %% @doc {@link statip_flog:fold/3} callback for {@link log_replay/3}.
 
 fold_print({GroupName, GroupOrigin} = _Key, GroupType, Values, Acc) ->
-  lists:foreach(
-    fun(V) ->
-      {ok, JSON} = encode_log_record({GroupType, GroupName, GroupOrigin, V}),
-      println(JSON)
-    end,
-    Values
-  ),
+  Acc1 = {GroupType, GroupName, GroupOrigin},
+  lists:foldl(fun fold_print/2, Acc1, Values),
+  Acc.
+
+fold_print(Value, {Type, Name, Origin} = Acc) ->
+  {ok, JSON} = encode_log_record({Type, Name, Origin, Value}),
+  println(JSON),
   Acc.
 
 %% }}}
