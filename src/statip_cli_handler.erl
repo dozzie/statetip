@@ -206,8 +206,9 @@ handle_command(log_dump = _Command,
       Result = log_dump(Handle, ReadBlock, ReadTries),
       statip_flog:close(Handle),
       Result;
-    {error, Reason} ->
-      {error, Reason}
+    {error, Reason} -> % `Reason' is an atom
+      printerr("can't open log file for reading", [{reason, Reason}]),
+      {error, 2}
   end;
 
 handle_command(log_replay = _Command,
@@ -224,8 +225,9 @@ handle_command(log_replay = _Command,
       Result = log_replay(Handle, ReadBlock, ReadTries),
       statip_flog:close(Handle),
       Result;
-    {error, Reason} ->
-      {error, Reason}
+    {error, Reason} -> % `Reason' is an atom
+      printerr("can't open log file for reading", [{reason, Reason}]),
+      {error, 2}
   end;
 
 handle_command(log_restore = _Command,
