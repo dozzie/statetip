@@ -132,14 +132,14 @@ init([] = _Args) ->
   % TODO: read the values of read block and read retries
   case application:get_env(state_dir) of
     {ok, LogDir} ->
-      statip_log:append_context([{log_dir, {str, LogDir}}]),
+      LogFile = filename:join(LogDir, ?LOG_FILE),
+      statip_log:append_context([{log_file, {str, LogFile}}]),
       case prepare_logfile(LogDir) of
         {ok, Entries} ->
           statip_log:info("starting state logger"),
           ok = dump_logfile(Entries, LogDir), % TODO: error handling
           ok = start_keepers(Entries),
           erlang:send_after(?COMPACT_DECISION_INTERVAL, self(), check_log_size),
-          LogFile = filename:join(LogDir, ?LOG_FILE),
           {ok, LogH} = statip_flog:open(LogFile, [write]),
           {ok, CompactionSize} = application:get_env(compaction_size),
           State = #state{
@@ -256,10 +256,7 @@ handle_call(reopen = _Request, _From, State = #state{log_dir = LogDir}) ->
       },
       {reply, ok, NewState};
     {error, Reason} ->
-      statip_log:err("can't reopen log file", [
-        {error, {term, Reason}},
-        {log_file, LogFile}
-      ]),
+      statip_log:err("can't reopen log file", [{error, {term, Reason}}]),
       NewState = State#state{
         log_handle = undefined,
         last_write_error = undefined
@@ -302,7 +299,7 @@ handle_info(check_log_size = _Message, State = #state{log_dir = LogDir}) ->
     false when State#state.log_handle == undefined ->
       % try reopen the log file
       LogFile = filename:join(LogDir, ?LOG_FILE),
-      statip_log:info("state log closed, reopening", [{log_file, LogFile}]),
+      statip_log:info("state log closed, reopening"),
       case statip_flog:open(LogFile, [write]) of
         {ok, NewHandle} ->
           NewState = State#state{
@@ -333,8 +330,7 @@ handle_info({compaction_finished, Ref, Result} = _Message,
       {ok, NewSize} = statip_flog:file_size(NewLogH),
       statip_log:info("log compacted", [
         {old_size, OldSize},
-        {new_size, NewSize},
-        {log_file, LogFile}
+        {new_size, NewSize}
       ]),
       NewState = State#state{
         compaction = undefined,
@@ -343,10 +339,7 @@ handle_info({compaction_finished, Ref, Result} = _Message,
       },
       {noreply, NewState};
     {error, Reason} ->
-      statip_log:err("compaction process failed", [
-        {error, {term, Reason}},
-        {log_file, LogFile}
-      ]),
+      statip_log:err("compaction process failed", [{error, {term, Reason}}]),
       NewState = State#state{compaction = undefined},
       {noreply, NewState}
   end;
@@ -588,7 +581,6 @@ when Type == related; Type == unrelated ->
 
 compact(LogFile, ResultTo, Ref, {LogType, LogContext}) ->
   statip_log:set_context(LogType, LogContext),
-  statip_log:append_context([{log_file, LogFile}]),
   case statip_flog:open(LogFile, [read]) of
     {ok, Handle} ->
       TimeStart = wall_clock(),
