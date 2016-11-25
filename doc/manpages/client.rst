@@ -74,8 +74,11 @@ This can be changed with :option:`--json` option, which causes
 
     List keys in a specific origin of a value group.
 
-    Null origin is specified as ``"/"``, which otherwise is not a valid
-    character in origin.
+    Null origin is specified as ``""`` (empty string), for example:
+
+    .. code-block:: none
+
+        $ statetip --reader servers ""
 
     Option :option:`--all` changes the mode from listing just keys to listing
     all values. This is similar to listing them one by one with consequent

@@ -29,10 +29,11 @@ ORIGIN_NULL = Constant("null")
 
 parser = optparse.OptionParser(
     usage =
-        "\n  %prog [--reader] [options] [name [origin [key]]]"
+        "\n  %prog [--reader] [options] [<name> [<origin> [<key>]]]"
         "\n  %prog --sender --name=GROUP_NAME [options]",
     description =
-        'For null origin, specify "/".'
+        "StateTip reader and sender command line client.\n"
+        '<null> origin is specified as an empty string ("").'
 )
 
 parser.add_option(
@@ -267,7 +268,7 @@ else: # MODE_READER
             dump(reader.origins(name), mode)
         elif len(args) == 2:
             (name, origin) = args
-            if origin == "/":
+            if origin == "":
                 origin = None
 
             if "all" not in options.print_fields:
@@ -284,7 +285,7 @@ else: # MODE_READER
                 dump(reader.values(name, origin), mode)
         elif len(args) == 3:
             (name, origin, key) = args
-            if origin == "/":
+            if origin == "":
                 origin = None
 
             value = reader.get(name, origin, key)
