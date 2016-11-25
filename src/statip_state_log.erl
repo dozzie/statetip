@@ -3,6 +3,7 @@
 %%%   State logger process.
 %%%
 %%% @todo Size limit and compaction schedule
+%%% @todo Document rate limiting for logs about write errors
 %%% @end
 %%%---------------------------------------------------------------------------
 
@@ -40,6 +41,7 @@
 -record(state, {
   log_dir :: file:filename(),
   log_handle :: statip_flog:handle(),
+  last_write_error :: file:posix() | undefined,
   compaction :: {reference(), term()} | undefined,
   compaction_size :: pos_integer()
 }).
@@ -183,37 +185,46 @@ handle_call({add, _Type, _GroupName, _GroupOrigin, _Value} = _Request, _From,
             State = #state{log_handle = undefined}) ->
   {reply, ok, State}; % ignore the entry
 handle_call({add, Type, GroupName, GroupOrigin, Value} = _Request, _From,
-            State = #state{log_handle = LogH}) ->
-  % TODO: log any write errors (e.g. "disk full")
-  statip_flog:append(LogH, GroupName, GroupOrigin, Value, Type),
-  {reply, ok, State};
+            State) ->
+  case log_append({Type, GroupName, GroupOrigin, Value}, State) of
+    {ok, NewState} ->
+      {reply, ok, NewState};
+    {error, Reason, NewState} ->
+      {reply, {error, Reason}, NewState}
+  end;
 
 handle_call({clear, _GroupName, _GroupOrigin, _Key} = _Request, _From,
             State = #state{log_handle = undefined}) ->
   {reply, ok, State}; % ignore the entry
-handle_call({clear, GroupName, GroupOrigin, Key} = _Request, _From,
-            State = #state{log_handle = LogH}) ->
-  % TODO: log any write errors (e.g. "disk full")
-  statip_flog:append(LogH, GroupName, GroupOrigin, {clear, Key}, unrelated),
-  {reply, ok, State};
+handle_call({clear, GroupName, GroupOrigin, Key} = _Request, _From, State) ->
+  case log_append({clear, GroupName, GroupOrigin, Key}, State) of
+    {ok, NewState} ->
+      {reply, ok, NewState};
+    {error, Reason, NewState} ->
+      {reply, {error, Reason}, NewState}
+  end;
 
 handle_call({clear, _GroupName, _GroupOrigin} = _Request, _From,
             State = #state{log_handle = undefined}) ->
   {reply, ok, State}; % ignore the entry
-handle_call({clear, GroupName, GroupOrigin} = _Request, _From,
-            State = #state{log_handle = LogH}) ->
-  % TODO: log any write errors (e.g. "disk full")
-  statip_flog:append(LogH, GroupName, GroupOrigin, clear, related),
-  {reply, ok, State};
+handle_call({clear, GroupName, GroupOrigin} = _Request, _From, State) ->
+  case log_append({clear, GroupName, GroupOrigin}, State) of
+    {ok, NewState} ->
+      {reply, ok, NewState};
+    {error, Reason, NewState} ->
+      {reply, {error, Reason}, NewState}
+  end;
 
 handle_call({rotate, _GroupName, _GroupOrigin} = _Request, _From,
             State = #state{log_handle = undefined}) ->
   {reply, ok, State}; % ignore the entry
-handle_call({rotate, GroupName, GroupOrigin} = _Request, _From,
-            State = #state{log_handle = LogH}) ->
-  % TODO: log any write errors (e.g. "disk full")
-  statip_flog:append(LogH, GroupName, GroupOrigin, rotate, related),
-  {reply, ok, State};
+handle_call({rotate, GroupName, GroupOrigin} = _Request, _From, State) ->
+  case log_append({rotate, GroupName, GroupOrigin}, State) of
+    {ok, NewState} ->
+      {reply, ok, NewState};
+    {error, Reason, NewState} ->
+      {reply, {error, Reason}, NewState}
+  end;
 
 handle_call(compact = _Request, _From, State = #state{log_dir = undefined}) ->
   % ignore compaction requests
@@ -229,9 +240,7 @@ handle_call(compact = _Request, _From, State = #state{log_dir = LogDir}) ->
   {reply, ok, NewState};
 
 handle_call(reopen = _Request, _From, State = #state{log_dir = undefined}) ->
-  % no log to (re)open, ignore the request
-  {reply, ok, State};
-handle_call(reopen = _Request, _From, State = #state{compaction = {_,_}}) ->
+  % no log configured, ignore the request
   {reply, ok, State};
 handle_call(reopen = _Request, _From, State = #state{log_dir = LogDir}) ->
   case State of
@@ -241,10 +250,20 @@ handle_call(reopen = _Request, _From, State = #state{log_dir = LogDir}) ->
   LogFile = filename:join(LogDir, ?LOG_FILE),
   case statip_flog:open(LogFile, [write]) of
     {ok, NewHandle} ->
-      NewState = State#state{log_handle = NewHandle},
+      NewState = State#state{
+        log_handle = NewHandle,
+        last_write_error = undefined
+      },
       {reply, ok, NewState};
     {error, Reason} ->
-      NewState = State#state{log_handle = undefined},
+      statip_log:err("can't reopen log file", [
+        {error, {term, Reason}},
+        {log_file, LogFile}
+      ]),
+      NewState = State#state{
+        log_handle = undefined,
+        last_write_error = undefined
+      },
       {reply, {error, Reason}, NewState}
   end;
 
@@ -265,20 +284,44 @@ handle_cast(_Request, State) ->
 handle_info(check_log_size = _Message, State = #state{log_dir = undefined}) ->
   {noreply, State};
 handle_info(check_log_size = _Message, State = #state{log_dir = LogDir}) ->
+  % XXX: this clause also clears remembered write errors, which serves
+  % a function in log rate limiting
   erlang:send_after(?COMPACT_DECISION_INTERVAL, self(), check_log_size),
   case should_compaction_start(State) of
     true ->
       statip_log:info("state log too big, starting compaction"),
       {ok, {_Ref, _Handle} = CompactHandle} = start_compaction(LogDir),
-      NewState = State#state{compaction = CompactHandle},
+      NewState = State#state{
+        compaction = CompactHandle,
+        last_write_error = undefined
+      },
       {noreply, NewState};
-    false ->
-      {noreply, State}
+    false when State#state.log_handle /= undefined ->
+      NewState = State#state{last_write_error = undefined},
+      {noreply, NewState};
+    false when State#state.log_handle == undefined ->
+      % try reopen the log file
+      LogFile = filename:join(LogDir, ?LOG_FILE),
+      statip_log:info("state log closed, reopening", [{log_file, LogFile}]),
+      case statip_flog:open(LogFile, [write]) of
+        {ok, NewHandle} ->
+          NewState = State#state{
+            log_handle = NewHandle,
+            last_write_error = undefined
+          },
+          {noreply, NewState};
+        {error, Reason} ->
+          statip_log:warn("state log reopening failed",
+                          [{reason, {term, Reason}}]),
+          NewState = State#state{last_write_error = undefined},
+          {noreply, NewState}
+      end
   end;
 
 handle_info({compaction_finished, Ref, Result} = _Message,
             State = #state{compaction = {Ref, CompactHandle},
                            log_dir = LogDir, log_handle = LogH}) ->
+  LogFile = filename:join(LogDir, ?LOG_FILE),
   case finish_compaction(Result, CompactHandle) of
     {ok, Records} ->
       {ok, OldSize} = statip_flog:file_size(LogH),
@@ -286,7 +329,6 @@ handle_info({compaction_finished, Ref, Result} = _Message,
       statip_flog:close(LogH),
       % XXX: `dump_logfile()' has just succeeded, so another `open()' should
       % work as well
-      LogFile = filename:join(LogDir, ?LOG_FILE),
       {ok, NewLogH} = statip_flog:open(LogFile, [write]),
       {ok, NewSize} = statip_flog:file_size(NewLogH),
       statip_log:info("log compacted", [
@@ -296,12 +338,15 @@ handle_info({compaction_finished, Ref, Result} = _Message,
       ]),
       NewState = State#state{
         compaction = undefined,
-        log_handle = NewLogH
+        log_handle = NewLogH,
+        last_write_error = undefined
       },
       {noreply, NewState};
-    {error, _Reason} ->
-      % TODO: log this event
-      % TODO: what to do now with `LogH'?
+    {error, Reason} ->
+      statip_log:err("compaction process failed", [
+        {error, {term, Reason}},
+        {log_file, LogFile}
+      ]),
       NewState = State#state{compaction = undefined},
       {noreply, NewState}
   end;
@@ -367,6 +412,49 @@ prepare_logfile(LogDir) ->
       end;
     [{booted, true}] -> % crash recovery
       {ok, none}
+  end.
+
+%%%---------------------------------------------------------------------------
+
+%% @doc Append a record to a log file and log any write errors to {@link
+%%   statip_log}.
+%%
+%%   On unrecoverable errors (e.g. filesystem dropped to read only), function
+%%   closes the log file.
+
+-spec log_append(statip_flog:entry(), #state{}) ->
+  {ok, #state{}} | {error, term(), #state{}}.
+
+log_append(Record, State = #state{log_handle = LogH,
+                                  last_write_error = RecentError}) ->
+  case statip_flog:append(LogH, Record) of
+    ok when RecentError == undefined ->
+      {ok, State};
+    ok when RecentError /= undefined ->
+      NewState = State#state{last_write_error = undefined},
+      {ok, NewState};
+    {error, Reason} when RecentError == Reason ->
+      % recoverable write error that has occurred recently; don't log it again
+      {error, Reason, State};
+    {error, Reason} when Reason == edquot;Reason == enomem;Reason == enospc ->
+      % a write error that can be cleared outside this program (e.g. no free
+      % space on disk), either different than the last time or the first one
+      % in the series
+      % NOTE: write errors don't have the tendency to change back and forth,
+      % so it may be worth to log one when it changes
+      statip_log:warn("recoverable log write error",
+                      [{reason, {term, Reason}}]),
+      NewState = State#state{last_write_error = Reason},
+      {error, Reason, NewState};
+    {error, Reason} ->
+      statip_log:err("unrecoverable write error, closing the log file",
+                     [{reason, {term, Reason}}]),
+      statip_flog:close(LogH),
+      NewState = State#state{
+        log_handle = undefined,
+        last_write_error = undefined
+      },
+      {error, Reason, NewState}
   end.
 
 %%%---------------------------------------------------------------------------
