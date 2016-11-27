@@ -1003,7 +1003,7 @@ log_write_back(LogFile, Records) ->
 %%   <i>NOTE</i>: On write errors this function dies with the reason.
 
 fold_write({GroupName, GroupOrigin} = _Key, GroupType, Values, Handle) ->
-  Acc = {Handle, GroupName, GroupOrigin, GroupType},
+  Acc = {Handle, GroupType, GroupName, GroupOrigin},
   lists:foldl(fun fold_write/2, Acc, Values),
   Handle.
 
@@ -1011,8 +1011,8 @@ fold_write({GroupName, GroupOrigin} = _Key, GroupType, Values, Handle) ->
 %%
 %%   <i>NOTE</i>: On write errors this function dies with the reason.
 
-fold_write(Value, {Handle, Name, Origin, Type} = Acc) ->
-  case statip_flog:append(Handle, Name, Origin, Value, Type) of
+fold_write(Value, {Handle, Type, Name, Origin} = Acc) ->
+  case statip_flog:append(Handle, {Type, Name, Origin, Value}) of
     ok -> Acc;
     {error, Reason} -> erlang:error(Reason)
   end.
