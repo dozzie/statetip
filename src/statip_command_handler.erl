@@ -295,6 +295,8 @@ reopen_error_logger_file() ->
           {error, iolist_to_binary(["can't open ", File, ": ", Reason])}
       end;
     undefined ->
+      % it's OK not to find this handler
+      gen_event:delete_handler(error_logger, statip_disk_h, []),
       ok
   end.
 
