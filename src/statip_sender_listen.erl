@@ -12,7 +12,7 @@
 -export([start/2, start_link/2]).
 
 %% config reloading
--export([reload/0]).
+-export([reload/1]).
 
 %% gen_server callbacks
 -export([init/1, terminate/2]).
@@ -51,12 +51,11 @@ start_link(BindAddr, Port) ->
 
 %% @doc Reload configuration (listen address).
 
--spec reload() ->
+-spec reload(pid()) ->
   ok | {error, term()}.
 
-reload() ->
-  % TODO: gen_server:call(?MODULE, reload) + register the listener
-  {error, 'TODO'}.
+reload(_Pid) ->
+  ok. % TODO: gen_server:call(Pid, reload)
 
 %%%---------------------------------------------------------------------------
 %%% gen_server callbacks
