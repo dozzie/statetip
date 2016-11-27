@@ -452,8 +452,8 @@ help(ScriptName) ->
     "  ", ScriptName, " [--socket <path>] start [--debug] [--config <path>] [--pidfile <path>]\n",
     "  ", ScriptName, " [--socket <path>] status [--wait [--timeout <seconds>]]\n",
     "  ", ScriptName, " [--socket <path>] stop [--timeout <seconds>] [--print-pid]\n",
-    "  ", ScriptName, " [--socket <path>] reload-config\n",
-    "  ", ScriptName, " [--socket <path>] compact-statelog\n",
+    "  ", ScriptName, " [--socket <path>] reload\n",
+    "  ", ScriptName, " [--socket <path>] compact\n",
     "  ", ScriptName, " [--socket <path>] reopen-logs\n",
     "Distributed Erlang support:\n",
     "  ", ScriptName, " [--socket <path>] dist-erl-start\n",
@@ -764,9 +764,9 @@ cli_opt(Arg, Opts = #opts{op = undefined}) ->
     "start"  -> Opts#opts{op = start};
     "status" -> Opts#opts{op = status};
     "stop"   -> Opts#opts{op = stop};
-    "reload-config" -> Opts#opts{op = reload_config};
-    "compact-statelog" -> Opts#opts{op = compact_statelog};
-    "reopen-logs"      -> Opts#opts{op = reopen_logs};
+    "reload" -> Opts#opts{op = reload_config};
+    "compact"     -> Opts#opts{op = compact_statelog};
+    "reopen-logs" -> Opts#opts{op = reopen_logs};
     "dist-erl-start" -> Opts#opts{op = dist_start};
     "dist-erl-stop"  -> Opts#opts{op = dist_stop};
     "list"   -> Opts#opts{op = list};

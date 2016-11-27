@@ -10,8 +10,8 @@ Synopsis
     statetipd [options] start [--debug] [--config <path>] [--pidfile <path>]
     statetipd [options] status [--wait [--timeout <seconds>]]
     statetipd [options] stop [--timeout <seconds>] [--print-pid]
-    statetipd [options] reload-config
-    statetipd [options] compact-statelog
+    statetipd [options] reload
+    statetipd [options] compact
     statetipd [options] reopen-logs
     statetipd [options] dist-erl-start
     statetipd [options] dist-erl-stop
@@ -80,11 +80,11 @@ option as the target daemon's address. Similarly, ``start`` uses
     Command waits at most *<seconds>* (default is infinity), and then reports
     an error.
 
-.. describe:: statetipd reload-config
+.. describe:: statetipd reload
 
     Reload the daemon's configuration. See also :ref:`statetipd-config`.
 
-.. describe:: statetipd compact-statelog
+.. describe:: statetipd compact
 
     Start the state log file compaction outside its usual schedule.
 
@@ -153,7 +153,7 @@ option as the target daemon's address. Similarly, ``start`` uses
     log-replay`` followed by ``statetipd log-restore``.
 
     This command is executed in the calling process, not in the daemon
-    instance, unlike similar command ``statetipd compact-statelog``.
+    instance, unlike similar command ``statetipd compact``.
 
 Options
 -------
