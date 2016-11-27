@@ -12,7 +12,7 @@
 -export([start/2, start_link/2]).
 
 %% config reloading
--export([rebind/1]).
+-export([rebind/1, shutdown/1]).
 
 %% gen_server callbacks
 -export([init/1, terminate/2]).
@@ -66,6 +66,14 @@ start_link(BindAddr, Port) ->
 
 rebind(Pid) ->
   gen_server:call(Pid, rebind, infinity).
+
+%% @doc Shutdown the listener.
+
+-spec shutdown(pid()) ->
+  ok.
+
+shutdown(Pid) ->
+  gen_server:call(Pid, shutdown).
 
 %%%---------------------------------------------------------------------------
 %%% gen_server callbacks
@@ -146,6 +154,10 @@ handle_call(rebind = _Request, _From, State) ->
       end,
       {reply, {error, Reason}, NewState, ?REBIND_LOOP_INTERVAL}
   end;
+
+handle_call(shutdown = _Request, _From, State) ->
+  statip_log:info("shutting down listening socket"),
+  {stop, normal, ok, State};
 
 %% unknown calls
 handle_call(_Request, _From, State) ->

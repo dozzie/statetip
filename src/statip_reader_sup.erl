@@ -57,17 +57,17 @@ converge([] = _New, [] = _Old) ->
   [];
 converge([NewName | NewRest] = _New, [] = Old) ->
   [start_child(NewName) | converge(NewRest, Old)];
-converge([] = New, [{OldName, _Pid} | OldRest] = _Old) ->
-  [stop_child(OldName) | converge(New, OldRest)];
+converge([] = New, [{OldName, Pid} | OldRest] = _Old) ->
+  [stop_child(OldName, Pid) | converge(New, OldRest)];
 converge([NewName | NewRest] = _New, [{OldName, Pid} | OldRest] = _Old)
 when NewName == OldName ->
   [reload_child(OldName, Pid) | converge(NewRest, OldRest)];
 converge([NewName | NewRest] = _New, [{OldName, _Pid} | _OldRest] = Old)
 when NewName < OldName ->
   [start_child(NewName) | converge(NewRest, Old)];
-converge([NewName | _NewRest] = New, [{OldName, _Pid} | OldRest] = _Old)
+converge([NewName | _NewRest] = New, [{OldName, Pid} | OldRest] = _Old)
 when OldName < NewName ->
-  [stop_child(OldName) | converge(New, OldRest)].
+  [stop_child(OldName, Pid) | converge(New, OldRest)].
 
 %% @doc Start a missing child.
 
@@ -79,8 +79,8 @@ start_child({_, Address, Port} = Name) ->
 
 %% @doc Stop an excessive child.
 
-stop_child(Name) ->
-  supervisor:terminate_child(?MODULE, Name),
+stop_child(Name, Pid) ->
+  statip_reader_listen:shutdown(Pid),
   supervisor:delete_child(?MODULE, Name),
   ok.
 
@@ -115,7 +115,7 @@ init([] = _Args) ->
 listen_child(Address, Port) ->
   {child_name(Address, Port),
     {statip_reader_listen, start_link, [Address, Port]},
-    permanent, 5000, worker, [statip_reader_listen]}.
+    transient, 5000, worker, [statip_reader_listen]}.
 
 child_name(Address, Port) ->
   {statip_reader_listen, Address, Port}.
