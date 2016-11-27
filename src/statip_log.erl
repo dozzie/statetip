@@ -341,7 +341,12 @@ start_link() ->
   ok | {error, term()}.
 
 reload() ->
-  {error, 'TODO'}.
+  % TODO: make this a little smarter than remove-all-add-all
+  lists:foreach(
+    fun(H) -> gen_event:delete_handler(?MODULE, H, []) end,
+    gen_event:which_handlers(?MODULE)
+  ),
+  add_handlers(whereis(?MODULE), get_handlers()).
 
 %% @doc Get handlers defined in application environment.
 
