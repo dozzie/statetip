@@ -78,10 +78,16 @@ rebind(Pid) ->
 %% @doc Initialize {@link gen_server} state.
 
 init([Addr, Port] = _Args) ->
+  statip_log:set_context(tcp, [
+    {address, format_address(Addr, Port)},
+    {protocol, sender}
+  ]),
   case resolve(Addr) of
     {ok, BindAddr} ->
       case listen(BindAddr, Port) of
         {ok, Socket} ->
+          statip_log:info("listening on socket",
+                          [{bind_address, format_address(BindAddr)}]),
           State = #state{
             socket = Socket,
             address = Addr,
@@ -90,9 +96,16 @@ init([Addr, Port] = _Args) ->
           },
           {ok, State, 0};
         {error, Reason} ->
+          statip_log:err("can't setup listening socket", [
+            {action, setup},
+            {error, {term, Reason}},
+            {bind_address, format_address(BindAddr)}
+          ]),
           {stop, {listen, Reason}}
       end;
     {error, Reason} ->
+      statip_log:err("can't resolve bind address",
+                     [{action, setup}, {error, {term, Reason}}]),
       {stop, {resolve, Reason}}
   end.
 
@@ -112,9 +125,25 @@ terminate(_Arg, _State = #state{socket = Socket}) ->
 
 handle_call(rebind = _Request, _From, State) ->
   case rebind_state(State) of
-    {ok, NewState} ->
+    {ok, State} ->
+      % stay silent
+      {reply, ok, State, 0};
+    {ok, NewState = #state{bind_address = NewBindAddr}} ->
+      statip_log:info("rebound to a new address",
+                      [{bind_address, format_address(NewBindAddr)}]),
       {reply, ok, NewState, 0};
     {error, Reason, NewState} ->
+      case Reason of
+        {resolve, E} ->
+          statip_log:err("can't resolve bind address",
+                         [{action, rebind}, {error, {term, E}}]);
+        {listen, E} ->
+          statip_log:err("can't setup listening socket", [
+            {action, rebind},
+            {error, {term, E}},
+            {bind_address, format_address(NewState#state.bind_address)}
+          ])
+      end,
       {reply, {error, Reason}, NewState, ?REBIND_LOOP_INTERVAL}
   end;
 
@@ -134,9 +163,12 @@ handle_cast(_Request, State) ->
 
 handle_info(timeout = _Message, State = #state{socket = undefined}) ->
   case rebind_state(State) of
-    {ok, NewState} ->
+    {ok, NewState = #state{bind_address = NewBindAddr}} ->
+      statip_log:info("rebound to a new address",
+                      [{bind_address, format_address(NewBindAddr)}]),
       {noreply, NewState, 0};
     {error, _Reason, NewState} ->
+      % stay silent
       {noreply, NewState, ?REBIND_LOOP_INTERVAL}
   end;
 
@@ -246,6 +278,35 @@ resolve({_,_,_,_} = Address) ->
   {ok, Address};
 resolve(Address) when is_list(Address); is_atom(Address) ->
   inet:getaddr(Address, inet).
+
+%%%---------------------------------------------------------------------------
+
+%% @doc Make a printable string from an address/port pair.
+
+-spec format_address(address(), inet:port_number()) ->
+  binary().
+
+format_address(Addr, Port) ->
+  iolist_to_binary([format_address(Addr), $:, integer_to_list(Port)]).
+
+%% @doc Make a printable string from an address.
+%%
+%% @todo IPv6 support
+
+-spec format_address(address() | bind_address()) ->
+  binary().
+
+format_address(any = _Addr) ->
+  <<"*">>;
+format_address(Addr) when is_atom(Addr) ->
+  atom_to_binary(Addr, utf8);
+format_address(Addr) when is_list(Addr) ->
+  list_to_binary(Addr);
+format_address({A,B,C,D} = _Addr) ->
+  iolist_to_binary([
+    integer_to_list(A), $., integer_to_list(B), $.,
+    integer_to_list(C), $., integer_to_list(D)
+  ]).
 
 %%%---------------------------------------------------------------------------
 %%% vim:ft=erlang:foldmethod=marker
