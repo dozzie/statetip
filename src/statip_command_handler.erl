@@ -35,6 +35,7 @@ handle_command([{<<"command">>, <<"status">>}, {<<"wait">>, true}] = _Command,
   [{result, running}];
 
 handle_command([{<<"command">>, <<"stop">>}] = _Command, _Args) ->
+  log_info(stop, "stopping StateTip daemon", []),
   init:stop(),
   [{result, ok}, {pid, list_to_binary(os:getpid())}];
 
@@ -42,45 +43,59 @@ handle_command([{<<"command">>, <<"reload_config">>}] = _Command, _Args) ->
   [{result, todo}];
 
 handle_command([{<<"command">>, <<"compact_statelog">>}] = _Command, _Args) ->
+  log_info(compact_statelog, "log compaction requested", []),
   case statip_state_log:compact() of
-    ok -> [{result, ok}];
-    {error, already_running} -> [{result, ok}]
+    ok ->
+      [{result, ok}];
+    {error, already_running} ->
+      log_info(compact_statelog, "compaction already started", []),
+      [{result, ok}]
   end;
 
 handle_command([{<<"command">>, <<"reopen_logs">>}] = _Command, _Args) ->
+  log_info(reopen_logs, "reopening log files", []),
   case reopen_state_log_file() of
     ok ->
+      log_info(reopen_logs, "state log reopened", []),
       case reopen_error_logger_file() of
-        ok -> [{result, ok}];
-        {error, Message} -> [{result, error}, {message, Message}]
+        ok ->
+          log_info(reopen_logs, "reopened log for error_logger", []),
+          [{result, ok}];
+        {error, Message} ->
+          log_error(reopen_logs, "error_logger reopen error",
+                    [{error, Message}]),
+          [{result, error}, {message, Message}]
       end;
     {error, Message} ->
+      log_error(reopen_logs, "state log reopen error",
+                [{error, Message}]),
       [{result, error}, {message, Message}]
   end;
 
 handle_command([{<<"command">>, <<"dist_start">>}] = _Command, _Args) ->
+  log_info(dist_start, "starting Erlang networking", []),
   case indira_app:distributed_start() of
     ok ->
       [{result, ok}];
     {error, Reason} ->
-      statip_log:warn(command, "can't setup Erlang networking",
-                      [{reason, {term, Reason}}]),
+      log_error(dist_start, "can't setup Erlang networking",
+                [{error, {term, Reason}}]),
       [{result, error}, {message, <<"Erlang networking error">>}]
   end;
 
 handle_command([{<<"command">>, <<"dist_stop">>}] = _Command, _Args) ->
+  log_info(dist_start, "stopping Erlang networking", []),
   case indira_app:distributed_stop() of
     ok ->
       [{result, ok}];
     {error, Reason} ->
-      statip_log:warn(command, "can't shutdown Erlang networking",
-                      [{reason, {term, Reason}}]),
+      log_error(dist_start, "can't shutdown Erlang networking",
+                [{error, {term, Reason}}]),
       [{result, error}, {message, <<"Erlang networking error">>}]
   end;
 
 handle_command([{<<"command">>, <<"list">>}, {<<"query">>, Query}] = _Command,
                _Args) ->
-  % [{result, ok}, {names | origins | keys | value, Result}]
   case Query of
     [{}] ->
       Names = statip_value:list_names(),
@@ -114,7 +129,9 @@ handle_command([{<<"command">>,<<"delete">>}, {<<"query">>,Query}] = _Command,
       [{result, ok}]
   end;
 
-handle_command(_Command, _Args) ->
+handle_command(Command, _Args) ->
+  % `Command' is a structure coming from JSON, so it's safe to log it as it is
+  statip_log:warn(unknown_command, "unknown command", [{command, Command}]),
   [{result, error}, {message, <<"unrecognized command">>}].
 
 %%%---------------------------------------------------------------------------
@@ -301,6 +318,20 @@ undef_to_null(Value) -> Value.
 
 %% }}}
 %%----------------------------------------------------------
+
+%%%---------------------------------------------------------------------------
+
+-spec log_info(atom(), statip_log:event_message(), statip_log:event_info()) ->
+  ok.
+
+log_info(Command, Message, Context) ->
+  statip_log:info(command, Message, Context ++ [{command, {term, Command}}]).
+
+-spec log_error(atom(), statip_log:event_message(), statip_log:event_info()) ->
+  ok.
+
+log_error(Command, Message, Context) ->
+  statip_log:warn(command, Message, Context ++ [{command, {term, Command}}]).
 
 %%%---------------------------------------------------------------------------
 %%% vim:ft=erlang:foldmethod=marker
