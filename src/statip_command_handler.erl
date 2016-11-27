@@ -44,11 +44,14 @@ handle_command([{<<"command">>, <<"reload_config">>}] = _Command, _Args) ->
     ok ->
       case [{N, format_term(E)} || {N, {error, E}} <- reload_processes()] of
         [] ->
+          unlock_reload(),
           [{result, ok}];
         Errors ->
+          unlock_reload(),
           [{result, error}, {errors, Errors}]
       end;
     {error, Message} ->
+      unlock_reload(),
       [{result, error}, {message, Message}]
   end;
 
@@ -341,17 +344,27 @@ undef_to_null(Value) -> Value.
   ok | {error, binary()}.
 
 reload_config() ->
-  case application:get_env(statip, configure) of
-    {ok, {Module, Function, Args}} ->
-      case apply(Module, Function, Args) of
-        ok -> ok;
-        {error, Message} when is_binary(Message) -> {error, Message};
-        % in case some error slipped in in raw form
-        {error, Reason} -> {error, format_term(Reason)}
-      end;
-    undefined ->
-      {error, <<"not configured from file">>}
+  try register('$statip_admin_reload_config', self()) of
+    true ->
+      case application:get_env(statip, configure) of
+        {ok, {Module, Function, Args}} ->
+          case apply(Module, Function, Args) of
+            ok -> ok;
+            {error, Message} when is_binary(Message) -> {error, Message};
+            % in case some error slipped in in raw form
+            {error, Reason} -> {error, format_term(Reason)}
+          end;
+        undefined ->
+          {error, <<"not configured from file">>}
+      end
+  catch
+    error:badarg ->
+      {error, <<"reload command already in progress">>}
   end.
+
+unlock_reload() ->
+  unregister('$statip_admin_reload_config'),
+  ok.
 
 -spec reload_processes() ->
   [{Part, Result}]
