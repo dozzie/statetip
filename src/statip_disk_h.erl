@@ -80,9 +80,13 @@ handle_event({LogType, _GroupLeader, LogData} = _Event,
              State = #state{handle = Handle}) ->
   case format_event(LogType, LogData) of
     {ok, Line} ->
-      % XXX: don't die on write errors (e.g. no space left on device), so the
-      % handler can recover without much intervention from (some) errors
-      file:write(Handle, [Line, $\n]);
+      case file:write(Handle, [Line, $\n]) of
+        ok -> ok;
+        {error, edquot} -> ok;
+        {error, enospc} -> ok;
+        {error, enomem} -> ok;
+        {error, _Reason} -> remove_handler % TODO: log this?
+      end;
     skip ->
       skip
   end,
