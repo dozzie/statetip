@@ -40,6 +40,7 @@ handle_command([{<<"command">>, <<"stop">>}] = _Command, _Args) ->
   [{result, ok}, {pid, list_to_binary(os:getpid())}];
 
 handle_command([{<<"command">>, <<"reload_config">>}] = _Command, _Args) ->
+  log_info(reload, "reloading configuration", []),
   case reload_config() of
     ok ->
       case [{N, format_term(E)} || {N, {error, E}} <- reload_processes()] of
@@ -48,10 +49,13 @@ handle_command([{<<"command">>, <<"reload_config">>}] = _Command, _Args) ->
           [{result, ok}];
         Errors ->
           unlock_reload(),
+          log_error(reload, "errors when applying new config",
+                    [{errors, Errors}]),
           [{result, error}, {errors, Errors}]
       end;
     {error, Message} ->
       unlock_reload(),
+      log_error(reload, "config reload error", [{error, Message}]),
       [{result, error}, {message, Message}]
   end;
 
@@ -377,6 +381,7 @@ reload_processes() ->
     %{dist_erl, ...}, % already reloaded when config was applied
     {error_logger,  reopen_error_logger_file()},
     {logger,        statip_log:reload()},
+    % TODO: make sender_listen and reader_listen errors readable
     {sender_listen, statip_sender_sup:reload()},
     {reader_listen, statip_reader_sup:reload()},
     {state_logger,  statip_state_log:reload()}
