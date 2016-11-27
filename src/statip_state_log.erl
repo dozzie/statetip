@@ -143,6 +143,7 @@ init([] = _Args) ->
     {ok, LogDir} ->
       LogFile = filename:join(LogDir, ?LOG_FILE),
       statip_log:append_context([{log_file, {str, LogFile}}]),
+      create_file(LogFile), % ignore errors
       case prepare_logfile(LogDir) of
         {ok, Entries} ->
           statip_log:info("starting state logger"),
@@ -414,6 +415,17 @@ prepare_logfile(LogDir) ->
       end;
     [{booted, true}] -> % crash recovery
       {ok, none}
+  end.
+
+%% @doc Create a file if it doesn't exist.
+
+-spec create_file(file:filename()) ->
+  ok | {error, file:posix() | badarg | system_limit}.
+
+create_file(File) ->
+  case file:open(File, [append, raw]) of
+    {ok, Handle} -> file:close(Handle);
+    {error, Reason} -> {error, Reason}
   end.
 
 %% @doc Repopulate state with (possibly new) application environment.
