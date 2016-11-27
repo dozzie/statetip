@@ -16,6 +16,8 @@
 -export([format_error/1]).
 -export([help/1]).
 
+-export([load_app_config/2]).
+
 %% gen_indira_cli callbacks
 -export([parse_arguments/2]).
 -export([handle_command/2, format_request/2, handle_reply/3]).
@@ -135,6 +137,8 @@ handle_command(start = _Command,
   ConfigFile = proplists:get_value(config, CLIOpts),
   case read_config_file(ConfigFile) of
     {ok, Config} ->
+      indira_app:set_option(statip, configure,
+                            {?MODULE, load_app_config, [ConfigFile, Options]}),
       case setup_applications(Config, Options) of
         {ok, IndiraOptions} ->
           indira_app:daemonize(?APPLICATION, [
@@ -323,6 +327,22 @@ handle_reply(Reply, stop = Command, _Options = #opts{options = CLIOpts}) ->
     {ok, _Pid} when not PrintPid -> ok;
     ok -> ok;
     {error, Reason} -> {error, Reason}
+  end;
+
+handle_reply(Reply, reload_config = Command, _Options) ->
+  case ?ADMIN_COMMAND_MODULE:parse_reply(Reply, Command) of
+    ok ->
+      ok;
+    {error, Message} when is_binary(Message) ->
+      printerr(["reload error: ", Message]),
+      {error, 1};
+    {error, Errors} when is_list(Errors) ->
+      printerr("reload errors:"),
+      lists:foreach(
+        fun({Part, Error}) -> printerr(["  ", Part, ": ", Error]) end,
+        Errors
+      ),
+      {error, 1}
   end;
 
 handle_reply(Reply, list = Command, _Options) ->
@@ -1132,6 +1152,33 @@ null_undef(Value) -> Value.
 
 %% }}}
 %%----------------------------------------------------------
+
+%%%---------------------------------------------------------------------------
+
+%% @doc Load and set `statip' application config from a config file.
+%%
+%%   Function intended for use in reloading config in the runtime.
+%%
+%%   Errors are formatted with {@link format_error/1}.
+
+-spec load_app_config(file:filename(), #opts{}) ->
+  ok | {error, Message :: binary()}.
+
+load_app_config(ConfigFile, Options) ->
+  case read_config_file(ConfigFile) of
+    {ok, Config} ->
+      % NOTE: `Options' is not really used by `configure_statip()' at this
+      % point, but pass it down in case it changes in the future
+      case configure_statip(Config, Options) of
+        ok ->
+          % TODO: reconfigure Erlang networking
+          ok;
+        {error, Reason} ->
+          {error, iolist_to_binary(format_error({configure, Reason}))}
+      end;
+    {error, Reason} ->
+      {error, iolist_to_binary(format_error(Reason))}
+  end.
 
 %%%---------------------------------------------------------------------------
 %%% vim:ft=erlang:foldmethod=marker

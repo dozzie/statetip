@@ -30,6 +30,9 @@
 %% supervision tree API
 -export([start/0, start_link/0]).
 
+%% config reloading
+-export([reload/0]).
+
 -export_type([event_type/0, event_info/0, event_message/0]).
 
 %%%---------------------------------------------------------------------------
@@ -331,6 +334,14 @@ start_link() ->
     {error, Reason} ->
       {error, Reason}
   end.
+
+%% @doc Reload log handlers.
+
+-spec reload() ->
+  ok | {error, term()}.
+
+reload() ->
+  {error, 'TODO'}.
 
 %% @doc Get handlers defined in application environment.
 

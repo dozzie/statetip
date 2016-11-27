@@ -13,7 +13,7 @@
 
 %% public interface
 -export([set/4, clear/3, clear/2, rotate/2]).
--export([compact/0, reopen/0]).
+-export([compact/0, reopen/0, reload/0]).
 
 %% internal interface
 -export([compact/4]).
@@ -100,6 +100,16 @@ compact() ->
 
 reopen() ->
   gen_server:call(?MODULE, reopen).
+
+%% @doc Reload configuration (state log directory, compaction size) and reopen
+%%   the log file if necessary.
+
+-spec reload() ->
+  ok | {error, term()}.
+
+reload() ->
+  % TODO: gen_server:call(?MODULE, reload) + register the listener
+  {error, 'TODO'}.
 
 %%%---------------------------------------------------------------------------
 %%% supervision tree API

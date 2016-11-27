@@ -40,7 +40,17 @@ handle_command([{<<"command">>, <<"stop">>}] = _Command, _Args) ->
   [{result, ok}, {pid, list_to_binary(os:getpid())}];
 
 handle_command([{<<"command">>, <<"reload_config">>}] = _Command, _Args) ->
-  [{result, todo}];
+  case reload_config() of
+    ok ->
+      case [{N, format_term(E)} || {N, {error, E}} <- reload_processes()] of
+        [] ->
+          [{result, ok}];
+        Errors ->
+          [{result, error}, {errors, Errors}]
+      end;
+    {error, Message} ->
+      [{result, error}, {message, Message}]
+  end;
 
 handle_command([{<<"command">>, <<"compact_statelog">>}] = _Command, _Args) ->
   log_info(compact_statelog, "log compaction requested", []),
@@ -196,6 +206,10 @@ parse_reply([{<<"message">>, Message}, {<<"result">>, <<"error">>}] = _Reply,
             _Command) ->
   {error, Message};
 
+parse_reply([{<<"errors">>, Errors}, {<<"result">>, <<"error">>}] = _Reply,
+            reload_config = _Command) ->
+  {error, Errors};
+
 parse_reply([{<<"pid">>, Pid}, {<<"result">>, <<"ok">>}] = _Reply,
             stop = _Command) ->
   {ok, Pid};
@@ -321,6 +335,43 @@ undef_to_null(Value) -> Value.
 
 %%%---------------------------------------------------------------------------
 
+-spec reload_config() ->
+  ok | {error, binary()}.
+
+reload_config() ->
+  case application:get_env(statip, configure) of
+    {ok, {Module, Function, Args}} ->
+      case apply(Module, Function, Args) of
+        ok -> ok;
+        {error, Message} when is_binary(Message) -> {error, Message};
+        % in case some error slipped in in raw form
+        {error, Reason} -> {error, format_term(Reason)}
+      end;
+    undefined ->
+      {error, <<"not configured from file">>}
+  end.
+
+-spec reload_processes() ->
+  [{Part, Result}]
+  when Part :: dist_erl | error_logger | logger
+             | sender_listen | reader_listen | state_logger,
+       Result :: ok | {error, term()}.
+
+reload_processes() ->
+  _Results = [
+    %{dist_erl, ...}, % already reloaded when config was applied
+    {error_logger,  reload_error_logger()},
+    {logger,        statip_log:reload()},
+    {sender_listen, statip_sender_listen:reload()},
+    {reader_listen, statip_reader_listen:reload()},
+    {state_logger,  statip_state_log:reload()}
+  ].
+
+reload_error_logger() ->
+  {error, 'TODO'}.
+
+%%%---------------------------------------------------------------------------
+
 -spec log_info(atom(), statip_log:event_message(), statip_log:event_info()) ->
   ok.
 
@@ -332,6 +383,14 @@ log_info(Command, Message, Context) ->
 
 log_error(Command, Message, Context) ->
   statip_log:warn(command, Message, Context ++ [{command, {term, Command}}]).
+
+-spec format_term(any()) ->
+  binary().
+
+format_term(Term) when is_binary(Term) ->
+  Term;
+format_term(Term) ->
+  iolist_to_binary(io_lib:print(Term, 1, 16#ffffffff, -1)).
 
 %%%---------------------------------------------------------------------------
 %%% vim:ft=erlang:foldmethod=marker

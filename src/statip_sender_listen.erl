@@ -11,6 +11,9 @@
 %% supervision tree API
 -export([start/0, start_link/0]).
 
+%% config reloading
+-export([reload/0]).
+
 %% gen_server callbacks
 -export([init/1, terminate/2]).
 -export([handle_call/3, handle_cast/2, handle_info/2]).
@@ -41,6 +44,19 @@ start() ->
 
 start_link() ->
   gen_server:start_link(?MODULE, [], []).
+
+%%%---------------------------------------------------------------------------
+%%% config reloading
+%%%---------------------------------------------------------------------------
+
+%% @doc Reload configuration (listen address).
+
+-spec reload() ->
+  ok | {error, term()}.
+
+reload() ->
+  % TODO: gen_server:call(?MODULE, reload) + register the listener
+  {error, 'TODO'}.
 
 %%%---------------------------------------------------------------------------
 %%% gen_server callbacks
