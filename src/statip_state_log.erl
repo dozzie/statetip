@@ -492,23 +492,23 @@ dump_logfile(Entries, LogDir) ->
   statip_flog:handle() | no_return().
 
 write_records({GroupName, GroupOrigin} = _Key, Type, Values, Handle = Acc) ->
-  case write_records(Handle, GroupName, GroupOrigin, Values, Type) of
+  case write_records(Handle, Type, GroupName, GroupOrigin, Values) of
     ok -> Acc;
     {error, Reason} -> throw({error, Reason})
   end.
 
 %% @doc Workhorse for {@link write_records/4}.
 
--spec write_records(statip_flog:handle(),
+-spec write_records(statip_flog:handle(), related | unrelated,
                     statip_value:name(), statip_value:origin(),
-                    [#value{}], related | unrelated) ->
+                    [#value{}]) ->
   ok | {error, file:posix() | badarg}.
 
-write_records(_Handle, _Name, _Origin, [] = _Values, _Type) ->
+write_records(_Handle, _Type, _Name, _Origin, [] = _Values) ->
   ok;
-write_records(Handle, Name, Origin, [Value | Rest] = _Values, Type) ->
-  case statip_flog:append(Handle, Name, Origin, Value, Type) of
-    ok -> write_records(Handle, Name, Origin, Rest, Type);
+write_records(Handle, Type, Name, Origin, [Value | Rest] = _Values) ->
+  case statip_flog:append(Handle, {Type, Name, Origin, Value}) of
+    ok -> write_records(Handle, Type, Name, Origin, Rest);
     {error, Reason} -> {error, Reason}
   end.
 
