@@ -146,7 +146,8 @@ handle_command(start = _Command,
           {error, {configure, Reason}}
       end;
     {error, Reason} ->
-      {error, {config_read, Reason}}
+      % Reason :: {config_format | config_read, term()}
+      {error, Reason}
   end;
 
 handle_command(status = Command,
