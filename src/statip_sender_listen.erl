@@ -127,7 +127,7 @@ handle_info(timeout = _Message, State = #state{socket = Socket}) ->
 
 %% unknown messages
 handle_info(_Message, State) ->
-  {noreply, State}.
+  {noreply, State, 0}.
 
 %% }}}
 %%----------------------------------------------------------
