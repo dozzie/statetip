@@ -33,16 +33,22 @@ start_link() ->
 %% @doc Initialize supervisor.
 
 init([] = _Args) ->
+  {ok, Addrs} = application:get_env(http),
   Strategy = {one_for_one, 5, 10},
   Children = [
     {statip_reader_client_sup,
       {statip_reader_client_sup, start_link, []},
-      permanent, 5000, supervisor, [statip_reader_client_sup]},
-    {statip_reader_listen,
-      {statip_reader_listen, start_link, []},
-      permanent, 5000, worker, [statip_reader_listen]}
+      permanent, 5000, supervisor, [statip_reader_client_sup]} |
+    [listen_child(Addr, Port) || {Addr, Port} <- Addrs]
   ],
   {ok, {Strategy, Children}}.
+
+%%%---------------------------------------------------------------------------
+
+listen_child(Address, Port) ->
+  {{statip_reader_listen, Address, Port},
+    {statip_reader_listen, start_link, [Address, Port]},
+    permanent, 5000, worker, [statip_reader_listen]}.
 
 %%%---------------------------------------------------------------------------
 %%% vim:ft=erlang:foldmethod=marker

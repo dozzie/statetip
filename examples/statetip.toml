@@ -3,14 +3,14 @@
 #
 
 [events]
-# TCP address to receive events on
-#listen = "*:3012"
+# TCP addresses to receive events on
+#listen = ["*:3012"]
 # default expiry time (seconds) for incoming events
 #default_expiry = 43200
 
 [http]
 # where to expose state to be read using HTTP API
-#listen = "*:3082"
+#listen = ["*:3082"]
 
 [store]
 # directory to store state between restarts; if not set, state won't be

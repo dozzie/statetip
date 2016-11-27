@@ -27,6 +27,8 @@ blockdiag {
 
   statip_keeper_unrelated [stacked];
   statip_keeper_related   [stacked];
+  statip_sender_listen [stacked];
+  statip_reader_listen [stacked];
   statip_sender_client [stacked];
   statip_reader_client [stacked];
 }

@@ -6,8 +6,8 @@
   {mod, {statip_app, []}},
   {env, [
     %{configure, mfa()},
-    {input, {localhost, 3012}},
-    {http,  {localhost, 3082}},
+    {input, [{localhost, 3012}]},
+    {http,  [{localhost, 3082}]},
     %{state_dir, "/var/lib/statetip"},
     {compaction_size, 10485760}, % 10MB, about 1 hour at 2.5kB/s
     {log_handlers, []}, % for statip_log; list of `{Module :: atom(), Args :: term()}'

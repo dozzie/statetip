@@ -9,7 +9,7 @@
 -behaviour(gen_server).
 
 %% supervision tree API
--export([start/0, start_link/0]).
+-export([start/2, start_link/2]).
 
 %% config reloading
 -export([reload/0]).
@@ -36,14 +36,14 @@
 %% @private
 %% @doc Start listener process.
 
-start() ->
-  gen_server:start(?MODULE, [], []).
+start(BindAddr, Port) ->
+  gen_server:start(?MODULE, [BindAddr, Port], []).
 
 %% @private
 %% @doc Start listener process.
 
-start_link() ->
-  gen_server:start_link(?MODULE, [], []).
+start_link(BindAddr, Port) ->
+  gen_server:start_link(?MODULE, [BindAddr, Port], []).
 
 %%%---------------------------------------------------------------------------
 %%% config reloading
@@ -68,8 +68,7 @@ reload() ->
 %% @private
 %% @doc Initialize {@link gen_server} state.
 
-init(_Args) ->
-  {ok, {Addr, Port}} = application:get_env(statip, http),
+init([Addr, Port] = _Args) ->
   case bind_opts(Addr) of
     {ok, BindOpts} ->
       Options = [

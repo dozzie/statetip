@@ -236,11 +236,11 @@ Configuration file could look like this:
 .. code-block:: ini
 
     [events]
-    listen = "localhost:3012"
+    listen = ["localhost:3012"]
     default_expiry = 43200
 
     [http]
-    listen = "localhost:3082"
+    listen = ["localhost:3082"]
 
     [store]
     directory = "/var/lib/statetip"
@@ -261,13 +261,13 @@ Configuration file could look like this:
 
 Section relevant to sender clients, which send values.
 
-.. describe:: listen = "<address>:<port>"
+.. describe:: listen = ["<address>:<port>", ...]
 
-    Option to set where to listen for sender clients. If *<address>* is
+    List of addresses to listen for sender clients. If *<address>* is
     specified as ``*``, :program:`statetipd` accepts connections on any
     address.
 
-    Default value is ``"localhost:3012"``.
+    Default value is ``["localhost:3012"]``.
 
 .. describe:: default_expiry = <seconds>
 
@@ -280,13 +280,13 @@ Section relevant to sender clients, which send values.
 
 Section relevant to reader clients.
 
-.. describe:: listen = "<address>:<port>"
+.. describe:: listen = ["<address>:<port>", ...]
 
-    Option to set where to listen for reader clients. If *<address>* is
+    List of addresses to listen for reader clients. If *<address>* is
     specified as ``*``, :program:`statetipd` accepts connections on any
     address.
 
-    Default value is ``"localhost:3082"``.
+    Default value is ``["localhost:3082"]``.
 
 ``[store]``
 -----------

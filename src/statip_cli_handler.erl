@@ -545,9 +545,9 @@ config_get([S, K] = _Key, Config) when is_binary(S), is_binary(K) ->
 
 config_check(_Key, _EnvKey, undefined = _Value) ->
   ignore;
-config_check([_Section, <<"listen">>] = _Key, _EnvKey, Value) ->
+config_check([_Section, <<"listen">>] = _Key, _EnvKey, Values) ->
   try
-    {ok, parse_listen_spec(Value)}
+    {ok, [parse_listen_spec(V) || V <- Values]}
   catch
     error:_ -> {error, invalid_value}
   end;
