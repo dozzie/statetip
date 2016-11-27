@@ -108,8 +108,7 @@ reopen() ->
   ok | {error, term()}.
 
 reload() ->
-  % TODO: gen_server:call(?MODULE, reload) + register the listener
-  {error, 'TODO'}.
+  gen_server:call(?MODULE, reload).
 
 %%%---------------------------------------------------------------------------
 %%% supervision tree API
@@ -249,28 +248,28 @@ handle_call(compact = _Request, _From, State = #state{log_dir = LogDir}) ->
   NewState = State#state{compaction = CompactHandle},
   {reply, ok, NewState};
 
-handle_call(reopen = _Request, _From, State = #state{log_dir = undefined}) ->
-  % no log configured, ignore the request
-  {reply, ok, State};
-handle_call(reopen = _Request, _From, State = #state{log_dir = LogDir}) ->
-  case State of
-    #state{log_handle = undefined} -> ok;
-    #state{log_handle = Handle} -> statip_flog:close(Handle)
-  end,
-  LogFile = filename:join(LogDir, ?LOG_FILE),
-  case statip_flog:open(LogFile, [write]) of
-    {ok, NewHandle} ->
-      NewState = State#state{
-        log_handle = NewHandle,
-        last_write_error = undefined
-      },
+handle_call(reopen = _Request, _From, State) ->
+  case reopen_log_file(State) of
+    {ok, NewState} ->
       {reply, ok, NewState};
-    {error, Reason} ->
+    {error, Reason, NewState} ->
       statip_log:err("can't reopen log file", [{error, {term, Reason}}]),
-      NewState = State#state{
-        log_handle = undefined,
-        last_write_error = undefined
-      },
+      {reply, {error, Reason}, NewState}
+  end;
+
+handle_call(reload = _Request, _From, State) ->
+  case State of
+    #state{compaction = {_, CompactHandle}} ->
+      statip_log:info("compaction in progress, interrupting"),
+      abort_compaction(CompactHandle);
+    #state{} ->
+      ok
+  end,
+  case reload_config(State#state{compaction = undefined}) of
+    {ok, NewState} ->
+      {reply, ok, NewState};
+    {error, Reason, NewState} ->
+      statip_log:err("can't open log file", [{error, {term, Reason}}]),
       {reply, {error, Reason}, NewState}
   end;
 
@@ -415,6 +414,93 @@ prepare_logfile(LogDir) ->
       end;
     [{booted, true}] -> % crash recovery
       {ok, none}
+  end.
+
+%% @doc Repopulate state with (possibly new) application environment.
+%%
+%%   The function closes/opens/reopens log file as necessary, and any possible
+%%   error is file opening error.
+%%
+%%   Note that it may be wise to call {@link abort_compaction/1} first.
+
+-spec reload_config(#state{}) ->
+  {ok, #state{}} | {error, term(), #state{}}.
+
+reload_config(State = #state{log_dir = undefined}) ->
+  {ok, CompactionSize} = application:get_env(compaction_size),
+  case application:get_env(state_dir) of
+    {ok, NewLogDir} ->
+      NewLogFile = filename:join(NewLogDir, ?LOG_FILE),
+      statip_log:set_context(state_log, [{log_file, {str, NewLogFile}}]),
+      statip_log:info("opening state log file"),
+      NewState = State#state{
+        log_dir = NewLogDir,
+        compaction_size = CompactionSize
+      },
+      reopen_log_file(NewState);
+    undefined ->
+      NewState = State#state{compaction_size = CompactionSize},
+      {ok, NewState}
+  end;
+reload_config(State = #state{log_dir = LogDir}) ->
+  {ok, CompactionSize} = application:get_env(compaction_size),
+  LogFile = filename:join(LogDir, ?LOG_FILE),
+  case application:get_env(state_dir) of
+    {ok, LogDir} ->
+      NewState = State#state{compaction_size = CompactionSize},
+      {ok, NewState};
+    {ok, NewLogDir} ->
+      NewLogFile = filename:join(NewLogDir, ?LOG_FILE),
+      statip_log:set_context(state_log, [{log_file, {str, NewLogFile}}]),
+      statip_log:info("changing log file", [{old_log_file, {str, LogFile}}]),
+      NewState = State#state{
+        log_dir = NewLogDir,
+        compaction_size = CompactionSize
+      },
+      reopen_log_file(NewState);
+    undefined ->
+      statip_log:set_context(state_log, []),
+      statip_log:info("closing log file", [{old_log_file, {str, LogFile}}]),
+      NewState = State#state{
+        log_dir = undefined,
+        compaction_size = CompactionSize
+      },
+      reopen_log_file(NewState)
+  end.
+
+%% @doc Close/open/reopen state log file.
+
+-spec reopen_log_file(#state{}) ->
+  {ok, #state{}} | {error, term(), #state{}}.
+
+reopen_log_file(State = #state{log_handle = undefined, log_dir = undefined}) ->
+  % nothing opened, that's how it should be
+  {ok, State};
+reopen_log_file(State = #state{log_handle = Handle, log_dir = undefined}) ->
+  % active file handle when none is expected (probably after
+  % `reload_config()')
+  statip_flog:close(Handle),
+  NewState = State#state{log_handle = undefined},
+  {ok, NewState};
+reopen_log_file(State = #state{log_handle = Handle, log_dir = LogDir}) ->
+  case Handle of
+    undefined -> ok;
+    _ -> statip_flog:close(Handle)
+  end,
+  LogFile = filename:join(LogDir, ?LOG_FILE),
+  case statip_flog:open(LogFile, [write]) of
+    {ok, NewHandle} ->
+      NewState = State#state{
+        log_handle = NewHandle,
+        last_write_error = undefined
+      },
+      {ok, NewState};
+    {error, Reason} ->
+      NewState = State#state{
+        log_handle = undefined,
+        last_write_error = undefined
+      },
+      {error, Reason, NewState}
   end.
 
 %%%---------------------------------------------------------------------------
@@ -682,6 +768,7 @@ finish_compaction(sync, {compact, Ref, Pid}) ->
 %%
 %% @see start_compaction/1
 %% @see finish_compaction/2
+%% @todo Flush synchronization messages
 
 -spec abort_compaction(term()) ->
   ok.
