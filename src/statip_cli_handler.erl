@@ -1167,7 +1167,8 @@ null_undef(Value) -> Value.
 load_app_config(ConfigFile, Options) ->
   case read_config_file(ConfigFile) of
     {ok, Config} ->
-      case configure_statip(Config, Options) of
+      ok = reset_statip_config(),
+      case configure_statip(config_defaults(Config), Options) of
         ok ->
           case load_error_logger_config(Config, Options) of
             ok -> load_indira_config(Config, Options);
@@ -1230,6 +1231,76 @@ load_indira_config(Config, Options) ->
       % errors in "[erlang]" section
       {error, iolist_to_binary(format_error({configure, bad_config}))}
   end.
+
+%% }}}
+%%----------------------------------------------------------
+%% reset_statip_config() {{{
+
+%% @doc Reset `statip' application's environment to default values.
+%%
+%%   Two keys are omitted: `configure', which is not really a configuration
+%%   setting (keeps "config reload" function for later use) and
+%%   `default_expiry', which cannot be reset freely to an arbitrary temporary
+%%   value like the others.
+%%
+%% @see config_defaults/1
+
+reset_statip_config() ->
+  CurrentConfig = [
+    Entry ||
+    {Key, _} = Entry <- application:get_all_env(statip),
+    Key /= configure,     % not really part of the configuration
+    Key /= default_expiry % immediately used, so needs special care
+  ],
+  DefaultConfig = dict:from_list(statip_default_env()),
+  lists:foreach(
+    fun({Key, _}) ->
+      case dict:find(Key, DefaultConfig) of
+        {ok, Value} -> application:set_env(statip, Key, Value);
+        error -> application:unset_env(statip, Key)
+      end
+    end,
+    CurrentConfig
+  ),
+  ok.
+
+%% }}}
+%%----------------------------------------------------------
+%% config_defaults() {{{
+
+%% @doc Populate config read from TOML file with values default for `statip'
+%%   application.
+%%
+%%   This function is used for reloading config and only works for settings
+%%   that cannot be freely reset to default (e.g.
+%%   <i>senders.default_expiry</i>, which is used immediately).
+%%
+%% @see reset_statip_config/0
+
+-spec config_defaults(config()) ->
+  config().
+
+config_defaults(Config) ->
+  SendersSection = proplists:get_value(<<"senders">>, Config, []),
+  case proplists:get_value(<<"default_expiry">>, SendersSection) of
+    undefined ->
+      Expiry = proplists:get_value(default_expiry, statip_default_env()),
+      NewSendersSection = [{<<"default_expiry">>, Expiry} | SendersSection],
+      _NewConfig = [{<<"senders">>, NewSendersSection} | Config];
+    _ ->
+      Config
+  end.
+
+%% }}}
+%%----------------------------------------------------------
+%% statip_default_env() {{{
+
+%% @doc Extract application's default environment from `statip.app' file.
+
+statip_default_env() ->
+  StatipAppFile = filename:join(code:lib_dir(statip, ebin), "statip.app"),
+  {ok, [{application, statip, AppKeys}]} = file:consult(StatipAppFile),
+  proplists:get_value(env, AppKeys).
 
 %% }}}
 %%----------------------------------------------------------
