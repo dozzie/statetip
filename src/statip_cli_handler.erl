@@ -515,10 +515,10 @@ setup_applications(Config, Options) ->
 
 configure_statip(GlobalConfig, _Options) ->
   SetSpecs = [
-    {[<<"events">>, <<"listen">>], {statip, input}},
-    {[<<"http">>,   <<"listen">>], {statip, http}},
-    {[<<"store">>,  <<"directory">>], {statip, state_dir}},
-    {[<<"store">>,  <<"compaction_size">>], {statip, compaction_size}},
+    {[<<"senders">>, <<"listen">>], {statip, senders}},
+    {[<<"readers">>, <<"listen">>], {statip, readers}},
+    {[<<"state_log">>, <<"directory">>], {statip, state_dir}},
+    {[<<"state_log">>, <<"compaction_size">>], {statip, compaction_size}},
     {[<<"events">>, <<"default_expiry">>], {statip, default_expiry}},
     {[<<"logging">>, <<"handlers">>], {statip, log_handlers}}
   ],
@@ -551,10 +551,10 @@ config_check([_Section, <<"listen">>] = _Key, _EnvKey, Values) ->
   catch
     error:_ -> {error, invalid_value}
   end;
-config_check([<<"store">>, <<"directory">>] = _Key, _EnvKey, Value)
+config_check([<<"state_log">>, <<"directory">>] = _Key, _EnvKey, Value)
 when is_binary(Value) ->
   ok;
-config_check([<<"store">>, <<"compaction_size">>] = _Key, _EnvKey, Size)
+config_check([<<"state_log">>, <<"compaction_size">>] = _Key, _EnvKey, Size)
 when is_integer(Size), Size > 0 ->
   ok;
 config_check([<<"events">>, <<"default_expiry">>] = _Key, _EnvKey, Value)

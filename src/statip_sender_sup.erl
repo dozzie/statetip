@@ -33,7 +33,7 @@ start_link() ->
 %% @doc Initialize supervisor.
 
 init([] = _Args) ->
-  {ok, Addrs} = application:get_env(input),
+  {ok, Addrs} = application:get_env(senders),
   Strategy = {one_for_one, 5, 10},
   Children = [
     {statip_sender_client_sup,

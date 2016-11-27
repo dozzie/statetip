@@ -235,14 +235,14 @@ Configuration file could look like this:
 
 .. code-block:: ini
 
-    [events]
+    [senders]
     listen = ["localhost:3012"]
     default_expiry = 43200
 
-    [http]
+    [readers]
     listen = ["localhost:3082"]
 
-    [store]
+    [state_log]
     directory = "/var/lib/statetip"
     compaction_size = 10485760
 
@@ -256,8 +256,8 @@ Configuration file could look like this:
     distributed_immediate = false
     log_file = "/var/log/statetip/erlang.log"
 
-``[events]``
-------------
+``[senders]``
+-------------
 
 Section relevant to sender clients, which send values.
 
@@ -275,8 +275,8 @@ Section relevant to sender clients, which send values.
 
     Default value is 43200 (12 hours).
 
-``[http]``
-----------
+``[readers]``
+-------------
 
 Section relevant to reader clients.
 
@@ -288,8 +288,8 @@ Section relevant to reader clients.
 
     Default value is ``["localhost:3082"]``.
 
-``[store]``
------------
+``[state_log]``
+---------------
 
 Section for state logging. State log is a file that records all the changes to
 the value groups.
@@ -300,7 +300,7 @@ a problem, as monitoring usually sends updates in intervals counted in
 minutes, but for the cases when a value is collected rarely, state log comes
 handy.
 
-*NOTE*: It is always safe to delete contents of ``store.directory`` when
+*NOTE*: It is always safe to delete contents of ``state_log.directory`` when
 :program:`statetipd` is shut down.
 
 .. describe:: directory = "<path>"
