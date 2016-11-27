@@ -362,15 +362,12 @@ reload_config() ->
 reload_processes() ->
   _Results = [
     %{dist_erl, ...}, % already reloaded when config was applied
-    {error_logger,  reload_error_logger()},
+    {error_logger,  reopen_error_logger_file()},
     {logger,        statip_log:reload()},
     {sender_listen, statip_sender_listen:reload()},
     {reader_listen, statip_reader_listen:reload()},
     {state_logger,  statip_state_log:reload()}
   ].
-
-reload_error_logger() ->
-  {error, 'TODO'}.
 
 %%%---------------------------------------------------------------------------
 
