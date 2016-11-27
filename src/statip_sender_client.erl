@@ -115,7 +115,8 @@ handle_cast(_Request, State) ->
 %% TCP input
 handle_info({tcp, Socket, Line} = _Request,
             State = #state{socket = Socket}) ->
-  case decode(Line) of
+  {ok, DefaultExpiry} = application:get_env(statip, default_expiry),
+  case decode(Line, DefaultExpiry) of
     {ok, {Name, Origin, Value, Type}} ->
       statip_value:add(Name, Origin, Value, Type),
       inet:setopts(Socket, [{active, once}]),
@@ -168,16 +169,14 @@ code_change(_OldVsn, State, _Extra) ->
 
 %% @doc Decode a JSON line into value and its metadata.
 
--spec decode(statip_json:json_string()) ->
+-spec decode(statip_json:json_string(), statip_value:expiry()) ->
     {ok, {statip_value:name(), statip_value:origin(), #value{},
            related | unrelated}}
   | {error, not_json | bad_format}.
 
-decode(Line) ->
+decode(Line, DefaultExpiry) ->
   case statip_json:decode(Line) of
     {ok, [{_,_}|_] = Struct} ->
-      % TODO: move reading default to the caller
-      {ok, DefaultExpiry} = application:get_env(statip, default_expiry),
       extract_value(Struct, DefaultExpiry);
     {ok, _} ->
       {error, bad_format};
