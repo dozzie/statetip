@@ -11,7 +11,7 @@
 
 %% public interface
 -export([open/2, close/1]).
--export([append/2, append/5, read/2, recover/2, file_size/1, position/1]).
+-export([append/2, read/2, recover/2, file_size/1, position/1]).
 -export([replay/3, replay/4, fold/3]).
 -export([format_error/1]).
 
@@ -200,8 +200,6 @@ position({flog_write, FH} = _Handle) ->
   file:position(FH, cur).
 
 %% @doc Append an entry to a log file opened for writing.
-%%
-%% @see append/5
 
 -spec append(handle(), entry()) ->
   ok | {error, read_only | file:posix() | badarg}.
@@ -218,9 +216,7 @@ append(Handle, {GroupType, GroupName, GroupOrigin, Value})
 when GroupType == related; GroupType == unrelated ->
   append(Handle, GroupName, GroupOrigin, Value, GroupType).
 
-%% @doc Append an entry to a log file opened for writing.
-%%
-%% @see append/2
+%% @doc Workhorse for {@link append/2}.
 
 -spec append(handle(), statip_value:name(), statip_value:origin(), Entry,
              related | unrelated) ->
