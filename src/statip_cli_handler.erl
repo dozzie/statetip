@@ -1167,18 +1167,72 @@ null_undef(Value) -> Value.
 load_app_config(ConfigFile, Options) ->
   case read_config_file(ConfigFile) of
     {ok, Config} ->
-      % NOTE: `Options' is not really used by `configure_statip()' at this
-      % point, but pass it down in case it changes in the future
       case configure_statip(Config, Options) of
         ok ->
-          % TODO: reconfigure Erlang networking
-          ok;
+          case load_error_logger_config(Config, Options) of
+            ok -> load_indira_config(Config, Options);
+            {error, Message} -> {error, Message}
+          end;
         {error, Reason} ->
           {error, iolist_to_binary(format_error({configure, Reason}))}
       end;
     {error, Reason} ->
       {error, iolist_to_binary(format_error(Reason))}
   end.
+
+%%----------------------------------------------------------
+%% load_error_logger_config() {{{
+
+%% @doc Set destination file for {@link error_logger}/{@link
+%%   statip_disk_h}.
+%%
+%% @see load_app_config/2
+
+-spec load_error_logger_config(config(), #opts{}) ->
+  ok | {error, Message :: binary()}.
+
+load_error_logger_config(Config, _Options) ->
+  ErlangConfig = proplists:get_value(<<"erlang">>, Config, []),
+  case proplists:get_value(<<"log_file">>, ErlangConfig) of
+    File when is_binary(File) ->
+      ok = indira_app:set_option(statip, error_logger_file, File);
+    undefined ->
+      ok = application:unset_env(statip, error_logger_file);
+    _ ->
+      {error, iolist_to_binary(format_error({configure, bad_config}))}
+  end.
+
+%% }}}
+%%----------------------------------------------------------
+%% load_indira_config() {{{
+
+%% @doc Reconfigure Indira's network configuration for Erlang.
+%%
+%% @see load_app_config/2
+
+-spec load_indira_config(config(), #opts{}) ->
+  ok | {error, Message :: binary()}.
+
+load_indira_config(Config, Options) ->
+  case prepare_indira_options(Config, Options) of
+    {ok, IndiraOptions} ->
+      case indira_app:distributed_reconfigure(IndiraOptions) of
+        ok ->
+          ok;
+        {error, invalid_net_config = _Reason} ->
+          {error, <<"invalid network configuration">>};
+        {error, Reason} ->
+          Message = io_lib:format("Erlang network reloading error: ~1024p",
+                                  [Reason]),
+          {error, iolist_to_binary(Message)}
+      end;
+    {error, bad_config} ->
+      % errors in "[erlang]" section
+      {error, iolist_to_binary(format_error({configure, bad_config}))}
+  end.
+
+%% }}}
+%%----------------------------------------------------------
 
 %%%---------------------------------------------------------------------------
 %%% vim:ft=erlang:foldmethod=marker
