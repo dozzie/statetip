@@ -12,7 +12,7 @@
 -export([start/2, start_link/2]).
 
 %% config reloading
--export([reload/1]).
+-export([rebind/1]).
 
 %% gen_server callbacks
 -export([init/1, terminate/2]).
@@ -22,10 +22,18 @@
 %%%---------------------------------------------------------------------------
 %%% types {{{
 
+-type address() :: any | inet:hostname() | inet:ip_address().
+
+-type bind_address() :: any | inet:ip_address().
+
 -define(ACCEPT_LOOP_INTERVAL, 100).
+-define(REBIND_LOOP_INTERVAL, 5000).
 
 -record(state, {
-  socket :: gen_tcp:socket()
+  socket :: gen_tcp:socket() | undefined,
+  address :: address(),
+  bind_address :: bind_address(),
+  port :: inet:port_number()
 }).
 
 %%% }}}
@@ -49,13 +57,15 @@ start_link(BindAddr, Port) ->
 %%% config reloading
 %%%---------------------------------------------------------------------------
 
-%% @doc Reload configuration (listen address).
+%% @doc Re-bind socket to the listen address.
+%%
+%%   It's mainly useful when DNS entry for the address has changed.
 
--spec reload(pid()) ->
+-spec rebind(pid()) ->
   ok | {error, term()}.
 
-reload(_Pid) ->
-  ok. % TODO: gen_server:call(Pid, reload)
+rebind(Pid) ->
+  gen_server:call(Pid, rebind, infinity).
 
 %%%---------------------------------------------------------------------------
 %%% gen_server callbacks
@@ -68,15 +78,16 @@ reload(_Pid) ->
 %% @doc Initialize {@link gen_server} state.
 
 init([Addr, Port] = _Args) ->
-  case bind_opts(Addr) of
-    {ok, BindOpts} ->
-      Options = [
-        binary, {packet, http_bin}, {active, false},
-        {reuseaddr, true}, {keepalive, true} | BindOpts
-      ],
-      case gen_tcp:listen(Port, Options) of
+  case resolve(Addr) of
+    {ok, BindAddr} ->
+      case listen(BindAddr, Port) of
         {ok, Socket} ->
-          State = #state{socket = Socket},
+          State = #state{
+            socket = Socket,
+            address = Addr,
+            bind_address = BindAddr,
+            port = Port
+          },
           {ok, State, 0};
         {error, Reason} ->
           {stop, {listen, Reason}}
@@ -89,7 +100,7 @@ init([Addr, Port] = _Args) ->
 %% @doc Clean up {@link gen_server} state.
 
 terminate(_Arg, _State = #state{socket = Socket}) ->
-  gen_tcp:close(Socket),
+  close(Socket),
   ok.
 
 %% }}}
@@ -98,6 +109,14 @@ terminate(_Arg, _State = #state{socket = Socket}) ->
 
 %% @private
 %% @doc Handle {@link gen_server:call/2}.
+
+handle_call(rebind = _Request, _From, State) ->
+  case rebind_state(State) of
+    {ok, NewState} ->
+      {reply, ok, NewState, 0};
+    {error, Reason, NewState} ->
+      {reply, {error, Reason}, NewState, ?REBIND_LOOP_INTERVAL}
+  end;
 
 %% unknown calls
 handle_call(_Request, _From, State) ->
@@ -112,6 +131,14 @@ handle_cast(_Request, State) ->
 
 %% @private
 %% @doc Handle incoming messages.
+
+handle_info(timeout = _Message, State = #state{socket = undefined}) ->
+  case rebind_state(State) of
+    {ok, NewState} ->
+      {noreply, NewState, 0};
+    {error, _Reason, NewState} ->
+      {noreply, NewState, ?REBIND_LOOP_INTERVAL}
+  end;
 
 handle_info(timeout = _Message, State = #state{socket = Socket}) ->
   case gen_tcp:accept(Socket, ?ACCEPT_LOOP_INTERVAL) of
@@ -144,20 +171,81 @@ code_change(_OldVsn, State, _Extra) ->
 
 %%%---------------------------------------------------------------------------
 
-%% @doc Convert bind hostname to options list suitable for {@link
-%%   gen_tcp:listen/2}.
+%% @doc Re-bind a listening socket if bind address changed.
+
+-spec rebind_state(#state{}) ->
+  {ok, #state{}} | {error, Reason, #state{}}
+  when Reason :: {resolve | listen, inet:posix()}.
+
+rebind_state(State = #state{socket = Socket, address = Addr, port = Port,
+                            bind_address = BindAddr}) ->
+  case resolve(Addr) of
+    {ok, BindAddr} when Socket /= undefined ->
+      % socket present and the same as old bind address; do nothing
+      {ok, State};
+    {ok, NewBindAddr} ->
+      % either a new bind address or the socket is closed
+      close(Socket),
+      case listen(NewBindAddr, Port) of
+        {ok, NewSocket} ->
+          NewState = State#state{
+            socket = NewSocket,
+            bind_address = NewBindAddr
+          },
+          {ok, NewState};
+        {error, Reason} ->
+          NewState = State#state{
+            socket = undefined,
+            bind_address = NewBindAddr
+          },
+          {error, {listen, Reason}, NewState}
+      end;
+    {error, Reason} ->
+      close(Socket),
+      NewState = State#state{socket = undefined},
+      {error, {resolve, Reason}, NewState}
+  end.
+
+%%%---------------------------------------------------------------------------
+
+%% @doc Bind to a port and (possibly) IP address.
+
+-spec listen(bind_address(), inet:port_number()) ->
+  {ok, gen_tcp:socket()} | {error, system_limit | inet:posix()}.
+
+listen(BindAddr, Port) ->
+  Options = [
+    binary, {packet, http_bin}, {active, false},
+    {reuseaddr, true}, {keepalive, true}
+  ],
+  case BindAddr of
+    any -> gen_tcp:listen(Port, Options);
+    _   -> gen_tcp:listen(Port, [{ip, BindAddr} | Options])
+  end.
+
+%% @doc Close a TCP listening socket.
+
+-spec close(gen_tcp:socket() | undefined) ->
+  ok.
+
+close(undefined = _Socket) ->
+  ok;
+close(Socket) ->
+  gen_tcp:close(Socket).
+
+%% @doc Resolve hostname to an IP address.
 %%
 %% @todo IPv6 support
 
-bind_opts(any = _Address) ->
-  {ok, []};
-bind_opts({_,_,_,_} = Address) ->
-  {ok, [{ip, Address}]};
-bind_opts(Address) when is_list(Address); is_atom(Address) ->
-  case inet:getaddr(Address, inet) of
-    {ok, IPAddr} -> {ok, [{ip, IPAddr}]};
-    {error, Reason} -> {error, Reason}
-  end.
+-spec resolve(address()) ->
+  {ok, bind_address()} | {error, inet:posix()}.
+
+resolve(any = _Address) ->
+  {ok, any};
+resolve({_,_,_,_} = Address) ->
+  {ok, Address};
+resolve(Address) when is_list(Address); is_atom(Address) ->
+  inet:getaddr(Address, inet).
 
 %%%---------------------------------------------------------------------------
 %%% vim:ft=erlang:foldmethod=marker

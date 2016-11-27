@@ -87,7 +87,7 @@ stop_child(Name) ->
 %% @doc Instruct the child to re-bind its listening socket.
 
 reload_child(Name, Pid) ->
-  case statip_sender_listen:reload(Pid) of
+  case statip_sender_listen:rebind(Pid) of
     ok -> ok;
     {error, Reason} -> {reload, Name, Reason}
   end.
