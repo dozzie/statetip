@@ -95,12 +95,14 @@ handle_event(_Event, State) ->
 %% @private
 %% @doc Handle {@link gen_event:call/2}.
 
-handle_call(reopen = _Request,
-            State = #state{filename = File, handle = Handle}) ->
+handle_call({reopen, NewFile} = _Request, State = #state{handle = Handle}) ->
   file:close(Handle),
-  case file:open(File, [append, raw, delayed_write]) of
+  case file:open(NewFile, [append, raw, delayed_write]) of
     {ok, NewHandle} ->
-      NewState = State#state{handle = NewHandle},
+      NewState = State#state{
+        filename = NewFile,
+        handle = NewHandle
+      },
       {ok, ok, NewState};
     {error, Reason} ->
       % TODO: log this?

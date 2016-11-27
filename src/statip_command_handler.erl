@@ -302,7 +302,7 @@ reopen_error_logger_file() ->
   ok | {error, bad_logger_module | {open, string()}}.
 
 reopen_error_logger_file(File) ->
-  case gen_event:call(error_logger, statip_disk_h, reopen) of
+  case gen_event:call(error_logger, statip_disk_h, {reopen, File}) of
     ok ->
       ok;
     {error, bad_module} ->
