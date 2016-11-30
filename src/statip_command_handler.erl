@@ -31,8 +31,10 @@ handle_command([{<<"command">>, <<"status">>}, {<<"wait">>, false}] = _Command,
   end;
 handle_command([{<<"command">>, <<"status">>}, {<<"wait">>, true}] = _Command,
                _Args) ->
-  wait_for_start(),
-  [{result, running}];
+  case wait_for_start() of
+    true  -> [{result, running}];
+    false -> [{result, stopped}]
+  end;
 
 handle_command([{<<"command">>, <<"stop">>}] = _Command, _Args) ->
   log_info(stop, "stopping StateTip daemon", []),
@@ -258,18 +260,21 @@ hardcoded_reply(generic_ok     = _Event) -> [{<<"result">>, <<"ok">>}].
 %% waiting for/checking daemon's start {{{
 
 wait_for_start() ->
-  case is_started() of
-    true -> true;
-    false -> timer:sleep(100), wait_for_start()
+  % XXX: this will wait until the children of top-level supervisor all
+  % started (and each child supervisor waits for its children, transitively)
+  % or the supervisor shuts down due to an error
+  try supervisor:which_children(statip_sup) of
+    _ -> true
+  catch
+    _:_ -> false
   end.
 
 is_started() ->
-  % TODO: replace this with better check (there could be a problem with
-  % booting)
-  case whereis(statip_sup) of
-    Pid when is_pid(Pid) -> true;
-    _ -> false
-  end.
+  % `{AppName :: atom(), Desc :: string(), Version :: string()}' or `false';
+  % only non-false when the application started successfully (it's still
+  % `false' during boot time)
+  AppEntry = lists:keyfind(statip, 1, application:which_applications()),
+  AppEntry /= false.
 
 %% }}}
 %%----------------------------------------------------------
