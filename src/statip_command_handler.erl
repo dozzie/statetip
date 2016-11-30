@@ -161,7 +161,7 @@ handle_command(Command, _Args) ->
   gen_indira_cli:request().
 
 format_request(status        = Command) -> [{command, Command}, {wait, false}];
-format_request(status_wait   = Command) -> [{command, Command}, {wait, true}];
+format_request(status_wait   =_Command) -> [{command, status}, {wait, true}];
 format_request(stop          = Command) -> [{command, Command}];
 format_request(reload_config = Command) -> [{command, Command}];
 format_request(compact_statelog = Command) -> [{command, Command}];
