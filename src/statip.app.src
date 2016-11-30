@@ -1,7 +1,19 @@
 {application, statip, [
   {description, "StateTip event stream registry"},
   {vsn, "0.0.0"},
-  {registered, []},
+  {registered, [
+    statip_sup,
+    statip_log,
+    statip_state_log,
+    statip_registry,
+    statip_keeper_sup,
+    statip_keeper_related_sup,
+    statip_keeper_unrelated_sup,
+    statip_reader_sup,
+    statip_reader_client_sup,
+    statip_sender_sup,
+    statip_sender_client_sup
+  ]},
   {applications, [kernel, stdlib]},
   {mod, {statip_app, []}},
   {env, [
