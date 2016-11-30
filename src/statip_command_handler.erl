@@ -101,12 +101,12 @@ handle_command([{<<"command">>, <<"dist_start">>}] = _Command, _Args) ->
   end;
 
 handle_command([{<<"command">>, <<"dist_stop">>}] = _Command, _Args) ->
-  log_info(dist_start, "stopping Erlang networking", []),
+  log_info(dist_stop, "stopping Erlang networking", []),
   case indira_app:distributed_stop() of
     ok ->
       [{result, ok}];
     {error, Reason} ->
-      log_error(dist_start, "can't shutdown Erlang networking",
+      log_error(dist_stop, "can't shutdown Erlang networking",
                 [{error, {term, Reason}}]),
       [{result, error}, {message, <<"Erlang networking error">>}]
   end;
