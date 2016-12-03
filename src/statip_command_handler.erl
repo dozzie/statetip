@@ -298,40 +298,19 @@ reopen_state_log_file() ->
 reopen_error_logger_file() ->
   case application:get_env(statip, error_logger_file) of
     {ok, File} ->
-      case reopen_error_logger_file(File) of
-        ok ->
-          ok;
-        {error, bad_logger_module} ->
-          {error, <<"can't load `statip_disk_h' module">>};
-        {error, {open, Reason}} -> % `Reason' is a string
-          {error, iolist_to_binary(["can't open ", File, ": ", Reason])}
-      end;
-    undefined ->
-      % it's OK not to find this handler
-      gen_event:delete_handler(error_logger, statip_disk_h, []),
-      ok
-  end.
-
--spec reopen_error_logger_file(file:filename()) ->
-  ok | {error, bad_logger_module | {open, string()}}.
-
-reopen_error_logger_file(File) ->
-  case gen_event:call(error_logger, statip_disk_h, {reopen, File}) of
-    ok ->
-      ok;
-    {error, bad_module} ->
-      % possibly removed in previous attempt to reopen the log file
-      case error_logger:add_report_handler(statip_disk_h, [File]) of
+      case indira_disk_h:reopen(error_logger, File) of
         ok ->
           ok;
         {error, Reason} ->
-          {error, {open, statip_disk_h:format_error(Reason)}};
-        {'EXIT', _Reason} ->
-          % missing module? should not happen
-          {error, bad_logger_module}
+          Message = [
+            "can't open ", File, ": ", indira_disk_h:format_error(Reason)
+          ],
+          {error, iolist_to_binary(Message)}
       end;
-    {error, Reason} ->
-      {error, {open, statip_disk_h:format_error(Reason)}}
+    undefined ->
+      % it's OK not to find this handler
+      indira_disk_h:remove(error_logger),
+      ok
   end.
 
 %% }}}

@@ -415,9 +415,7 @@ format_error({configure, bad_config} = _Reason) ->
   % TODO: be more precise
   "invalid [erlang] section in config";
 format_error({configure, {log_file, Error}} = _Reason) ->
-  ["error opening log file: ", file:format_error(Error)];
-format_error({configure, bad_logger_module} = _Reason) ->
-  "can't load `statip_disk_h' module";
+  ["error opening log file: ", indira_disk_h:format_error(Error)];
 
 %% TODO: `indira_app:daemonize()' errors
 
@@ -607,10 +605,9 @@ setup_logging(Config, _Options = #opts{options = CLIOpts}) ->
     File when is_binary(File) ->
       % XXX: see also `statip_command_handler:handle_command()'
       ok = indira_app:set_option(statip, error_logger_file, File),
-      case error_logger:add_report_handler(statip_disk_h, [File]) of
+      case indira_disk_h:install(error_logger, File) of
         ok -> ok;
-        {error, Reason} -> {error, {log_file, Reason}};
-        {'EXIT', _Reason} -> {error, bad_logger_module}
+        {error, Reason} -> {error, {log_file, Reason}}
       end;
     undefined ->
       ok;
@@ -1185,7 +1182,7 @@ load_app_config(ConfigFile, Options) ->
 %% load_error_logger_config() {{{
 
 %% @doc Set destination file for {@link error_logger}/{@link
-%%   statip_disk_h}.
+%%   indira_disk_h}.
 %%
 %% @see load_app_config/2
 
