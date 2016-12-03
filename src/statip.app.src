@@ -1,6 +1,6 @@
 {application, statip, [
   {description, "StateTip event stream registry"},
-  {vsn, "0.0.0"},
+  {vsn, "0.1.0"},
   {registered, [
     statip_sup,
     statip_log,
