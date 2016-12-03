@@ -1,0 +1,20 @@
+#!/bin/sh
+
+set -e
+
+if [ -z "`getent group statetip`" ]; then
+  addgroup --quiet --system statetip
+fi
+if [ -z "`getent passwd statetip`" ]; then
+  echo -n "  Creating new user statetip " >&2
+  adduser --quiet --system --home /var/lib/statetip --shell /bin/false \
+      --ingroup statetip --disabled-password --disabled-login \
+      --gecos "StateTip daemon" statetip
+  echo "done." >&2
+fi
+
+chown statetip:statetip /var/lib/statetip
+chmod 0700 /var/lib/statetip
+chown statetip:statetip /var/log/statetip
+
+#DEBHELPER#

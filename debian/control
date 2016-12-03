@@ -1,0 +1,46 @@
+Source: statetip
+Maintainer: Stanislaw Klekot <dozzie@jarowit.net>
+Section: net
+Priority: optional
+Build-Depends: debhelper (>> 7.0.0), make, python-support, python-setuptools,
+ rebar, erlang-base (>= 1:15.b), erlang-dev,
+ python-sphinx (>= 1.1)
+X-Python-Version: >= 2.6
+
+Package: statetipd
+Architecture: all
+Depends: ${shlibs:Depends}, ${misc:Depends},
+ erlang | erlang-nox, erlang-base (>= 1:15.b), erlang-indira (>> 0.9.0),
+ erlang-etoml
+Recommends: python-statetip
+Description: monitoring data store
+ StateTip is a data store that remembers most recent states of monitored
+ objects (servers, network links and equipment, availability of services,
+ etc.) StateTip allows then to retrieve the data about specific object and
+ list the objects the data was collected about.
+
+Package: python-statetip
+Architecture: all
+Section: python
+Priority: optional
+Depends: ${shlibs:Depends}, ${misc:Depends}, ${python:Depends}
+Provides: ${python:Provides}
+Description: monitoring data store - command line client and Python module
+ StateTip is a data store that remembers most recent states of monitored
+ objects (servers, network links and equipment, availability of services,
+ etc.) StateTip allows then to retrieve the data about specific object and
+ list the objects the data was collected about.
+ .
+ This package contains command line client and Python module to interact with
+ StateTip daemon.
+
+Package: statetip-doc
+Architecture: all
+Description: monitoring data store - documentation
+ StateTip is a data store that remembers most recent states of monitored
+ objects (servers, network links and equipment, availability of services,
+ etc.) StateTip allows then to retrieve the data about specific object and
+ list the objects the data was collected about.
+ .
+ This package contains documentation for StateTip daemon and Python client
+ module.

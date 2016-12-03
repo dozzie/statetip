@@ -1,0 +1,212 @@
+#! /bin/sh
+### BEGIN INIT INFO
+# Provides:          statetipd
+# Required-Start:    $remote_fs $syslog
+# Required-Stop:     $remote_fs $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: StateTip daemon
+### END INIT INFO
+
+# Do NOT "set -e"
+
+# PATH should only include /usr/* if it runs after the mountnfs.sh script
+PATH=/sbin:/usr/sbin:/bin:/usr/bin
+DESC="StateTip daemon"
+NAME=statetip
+DAEMON=/usr/sbin/statetipd
+RUN_DIR_MODE=700
+PIDFILE=/var/run/$NAME/pid
+CONTROL_SOCKET=/var/run/$NAME/control
+SCRIPTNAME=/etc/init.d/$NAME
+
+STATETIP_CONFIG=/etc/statetip/statetip.toml
+STATETIP_USER=statetip
+STATETIP_GROUP=statetip
+
+# XXX: $HOME is required by Erlang VM
+[ -n "$HOME" ] || export HOME=/
+
+# Exit if the package is not installed
+[ -x "$DAEMON" ] || exit 0
+
+# Read configuration variable file if it is present
+[ -r /etc/default/$NAME ] && . /etc/default/$NAME
+
+# Exit if the config is not created yet
+[ -f $STATETIP_CONFIG ] || exit 0
+
+# Load the VERBOSE setting and other rcS variables
+. /lib/init/vars.sh
+
+# Define LSB log_* functions.
+# Depend on lsb-base (>= 3.2-14) to ensure that this file is present
+# and status_of_proc is working.
+. /lib/lsb/init-functions
+
+#
+# Function that starts the daemon
+#
+do_start() {
+  # Return
+  #   0 if daemon has been started
+  #   1 if daemon was already running
+  #   2 if daemon could not be started
+
+  if [ ! -e "$STATETIP_CONFIG" ]; then
+    log_failure_msg "$NAME configuration file $STATETIP_CONFIG doesn't exist"
+    return 2
+  fi
+
+  if [ ! -d /var/run/$NAME ]; then
+    mkdir -m $RUN_DIR_MODE -p /var/run/$NAME || exit 1
+    chown $STATETIP_USER:$STATETIP_GROUP /var/run/$NAME
+  fi
+
+  $DAEMON --socket $CONTROL_SOCKET status > /dev/null 2>&1
+  RETVAL=$?
+  case $RETVAL in
+    0) return 1  ;; # running
+    1) : proceed ;; # not running
+    *) return 2  ;; # error
+  esac
+
+  start-stop-daemon --start --quiet \
+    --pidfile $PIDFILE \
+    --chuid $STATETIP_USER:$STATETIP_GROUP \
+    --background \
+    --exec $DAEMON -- \
+        start \
+        --socket $CONTROL_SOCKET \
+        --config $STATETIP_CONFIG \
+        --pidfile $PIDFILE || return 2
+
+  $DAEMON --socket $CONTROL_SOCKET status --wait --timeout=10 > /dev/null 2>&1
+  RETVAL=$?
+  if [ $RETVAL != 0 ]; then
+    return 2
+  fi
+}
+
+#
+# Function that stops the daemon
+#
+do_stop() {
+  # Return
+  #   0 if daemon has been stopped
+  #   1 if daemon was already stopped
+  #   2 if daemon could not be stopped
+  #   other if a failure occurred
+  if ! [ -e $CONTROL_SOCKET ]; then
+    return 1
+  fi
+
+  DAEMON_PID=`$DAEMON --socket $CONTROL_SOCKET stop --timeout=10 --print-pid`
+  RETVAL="$?"
+  if [ "$RETVAL" != 0 ]; then
+    return 2
+  fi
+
+  # StateTip could have stopped before sending a confirmation, in which case
+  # no PID was printed
+  if [ -n "$DAEMON_PID" ]; then
+    # wait for daemon to terminate
+    while kill -0 $DAEMON_PID 2> /dev/null; do
+      sleep 1
+    done
+  fi
+
+  return 0
+}
+
+#
+# Function that sends a reload command to the daemon
+#
+do_reload() {
+  $DAEMON --socket $CONTROL_SOCKET reload
+}
+
+#
+# Function that orders the daemon to rotate log files
+#
+do_rotate() {
+  $DAEMON --socket $CONTROL_SOCKET reopen-logs
+}
+
+#
+# Function that checks daemon's status
+#
+do_status() {
+  $DAEMON --socket $CONTROL_SOCKET status > /dev/null 2>&1
+  RETVAL=$?
+  case $RETVAL in
+    0)
+      log_success_msg "$NAME is running"
+      return 0
+    ;;
+    1)
+      log_failure_msg "$NAME is not running"
+      return 1
+    ;;
+    *)
+      log_failure_msg "$NAME reported unknown status"
+      return 1
+    ;;
+  esac
+}
+
+case "$1" in
+  start)
+    log_daemon_msg "Starting $DESC" "$NAME"
+    do_start
+    case "$?" in
+      0|1) log_end_msg 0 ;;
+      2)   log_end_msg 1 ;;
+    esac
+  ;;
+  stop)
+    log_daemon_msg "Stopping $DESC" "$NAME"
+    do_stop
+    case "$?" in
+      0|1) log_end_msg 0 ;;
+      2)   log_end_msg 1 ;;
+    esac
+  ;;
+  status)
+    do_status && exit 0 || exit $?
+  ;;
+  reload|force-reload)
+    log_daemon_msg "Reloading $DESC" "$NAME"
+    do_reload
+    log_end_msg $?
+  ;;
+  restart)
+    log_daemon_msg "Restarting $DESC" "$NAME"
+    do_stop
+    case "$?" in
+      0|1)
+        do_start
+        case "$?" in
+          0) log_end_msg 0 ;;
+          1) log_end_msg 1 ;; # Old process is still running
+          *) log_end_msg 1 ;; # Failed to start
+        esac
+      ;;
+      *)
+        # Failed to stop
+        log_end_msg 1
+      ;;
+    esac
+  ;;
+  rotate)
+    log_daemon_msg "Rotating $DESC logs" "$NAME"
+    do_rotate
+    log_end_msg $?
+  ;;
+  *)
+    echo "Usage: $SCRIPTNAME {start|stop|status|restart|reload|force-reload|rotate}" >&2
+    exit 3
+  ;;
+esac
+
+:

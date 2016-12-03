@@ -1,0 +1,6 @@
+/etc/statetip/statetip.toml.example
+/etc/statetip/erlang.args
+/usr/sbin/statetipd
+/usr/share/man/man7/statetip-protocol.7
+/usr/share/man/man8/statetipd.8
+/usr/lib/erlang/lib/statip-*

@@ -1,0 +1,10 @@
+# Main configuration file.
+#STATETIP_CONFIG=/etc/statetip/statetip.toml
+
+# User/group to run as (defaults to statetip:statetip)
+#STATETIP_USER=
+#STATETIP_GROUP=
+
+# Permissions on the directory containing control socket. Effectively
+# a control over who can connect to the control socket.
+#RUN_DIR_MODE=700

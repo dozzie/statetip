@@ -1,0 +1,12 @@
+/var/log/statetip/erlang.log
+{
+	rotate 7
+	weekly
+	missingok
+	notifempty
+	delaycompress
+	compress
+	postrotate
+		invoke-rc.d statetip rotate > /dev/null
+	endscript
+}
