@@ -194,8 +194,8 @@ line formats:
 .. code-block:: none
 
     key
-    key value
-    key value severity
+    key state
+    key state severity
 
 If neither of the options were specified, :program:`statetip` expects the
 origin as an additional first field (this allows to send values of several
@@ -204,11 +204,11 @@ origins):
 .. code-block:: none
 
     origin key
-    origin key value
-    origin key value severity
+    origin key state
+    origin key state severity
 
-Name, origin, key, and value are non-empty strings that consist of letters,
-digits, ``"."``, ``"_"``, ``"-"``. Key and value can also contain ``"/"``
+Name, origin, key, and state are non-empty strings that consist of letters,
+digits, ``"."``, ``"_"``, ``"-"``. Key and state can also contain ``"/"``
 characters.
 
 If severity is specified, it should be either ``expected``, ``warning``, or
