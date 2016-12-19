@@ -511,7 +511,7 @@ format_etoml_error({duplicated_key, Key}) ->
 %% @doc Configure environment (Erlang, Indira, main app) from loaded config.
 
 -spec setup_applications(config(), #opts{}) ->
-  ok | {error, term()}.
+  {ok, [indira_app:daemon_option()]} | {error, term()}.
 
 setup_applications(Config, Options) ->
   case configure_statip(Config, Options) of
