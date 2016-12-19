@@ -141,10 +141,10 @@ handle_command([{<<"command">>,<<"delete">>}, {<<"query">>,Query}] = _Command,
       statip_value:delete(Name),
       [{result, ok}];
     [{<<"name">>, Name}, {<<"origin">>, Origin}] ->
-      statip_value:delete(Name, Origin),
+      statip_value:delete(Name, null_to_undef(Origin)),
       [{result, ok}];
     [{<<"key">>, Key}, {<<"name">>, Name}, {<<"origin">>, Origin}] ->
-      statip_value:delete(Name, Origin, Key),
+      statip_value:delete(Name, null_to_undef(Origin), Key),
       [{result, ok}]
   end;
 
