@@ -380,7 +380,7 @@ handle_reply(Reply, Command, _Options) ->
 %% @doc Convert an error to a printable form.
 
 -spec format_error(term()) ->
-  iolist().
+  iolist() | binary().
 
 %% command line parsing
 format_error({bad_command, Command} = _Reason) ->
@@ -402,9 +402,9 @@ format_error(too_little_args = _Reason) ->
 
 %% config file handling (`start')
 format_error({config_read, Error} = _Reason) ->
-  io_lib:format("error while reading config file: ~1024p", [Error]);
+  ["error while reading config file: ", file:format_error(Error)];
 format_error({config_format, Error} = _Reason) ->
-  io_lib:format("config file parsing error: ~1024p", [Error]);
+  ["config file parsing error: ", format_etoml_error(Error)];
 format_error({configure, {[Section, Option] = _Key, _Env, _Error}} = _Reason) ->
   % `Error' is what `config_check()' returned, `Key' is which key was it;
   % see `configure_statip()' for used keys
@@ -421,18 +421,22 @@ format_error({configure, {log_file, Error}} = _Reason) ->
 
 %% request sending errors
 format_error({send, bad_request_format} = _Reason) ->
-  "unserializable request format";
+  "invalid request format (programmer's error)";
 format_error({send, bad_reply_format} = _Reason) ->
-  "invalid reply format";
+  "invalid reply format (daemon's error)";
 format_error({send, timeout} = _Reason) ->
   "operation timed out";
 format_error({send, Error} = _Reason) ->
   io_lib:format("request sending error: ~1024p", [Error]);
 
-format_error(unrecognized_reply = _Reason) ->
-  "unrecognized daemon's reply";
 format_error('TODO' = _Reason) ->
   "operation not implemented yet (daemon side)";
+
+format_error(unrecognized_reply = _Reason) ->
+  "unrecognized daemon's reply";
+format_error({bad_return_value, Value} = _Reason) ->
+  io_lib:format("invalid return value from callback: ~1024p", [Value]);
+
 format_error(Reason) when is_binary(Reason) ->
   Reason;
 format_error(Reason) ->
@@ -486,6 +490,23 @@ read_config_file(ConfigFile) ->
     {error, Reason} ->
       {error, {config_read, Reason}}
   end.
+
+format_etoml_error({invalid_key, Line}) ->
+  io_lib:format("line ~B: invalid key name", [Line]);
+format_etoml_error({invalid_group, Line}) ->
+  io_lib:format("line ~B: invalid group name", [Line]);
+format_etoml_error({invalid_date, Line}) ->
+  io_lib:format("line ~B: invalid date format", [Line]);
+format_etoml_error({invalid_number, Line}) ->
+  io_lib:format("line ~B: invalid number value or forgotten quotes", [Line]);
+format_etoml_error({invalid_array, Line}) ->
+  io_lib:format("line ~B: invalid array format", [Line]);
+format_etoml_error({invalid_string, Line}) ->
+  io_lib:format("line ~B: invalid string format", [Line]);
+format_etoml_error({undefined_value, Line}) ->
+  io_lib:format("line ~B: value not provided", [Line]);
+format_etoml_error({duplicated_key, Key}) ->
+  io_lib:format("duplicated key: ~s", [Key]).
 
 %% @doc Configure environment (Erlang, Indira, main app) from loaded config.
 
