@@ -25,7 +25,6 @@
 %%%---------------------------------------------------------------------------
 %%% types {{{
 
--define(APPLICATION, statip).
 -define(ADMIN_COMMAND_MODULE, statip_command_handler).
 % XXX: `status' and `stop' commands are bound to few specific errors this
 % module returns; this can't be easily moved to a config/option
@@ -141,7 +140,7 @@ handle_command(start = _Command,
                             {?MODULE, load_app_config, [ConfigFile, Options]}),
       case setup_applications(Config, Options) of
         {ok, IndiraOptions} ->
-          indira_app:daemonize(?APPLICATION, [
+          indira_app:daemonize(statip, [
             {listen, [{?ADMIN_SOCKET_TYPE, Socket}]},
             {command, {?ADMIN_COMMAND_MODULE, []}} |
             IndiraOptions
@@ -649,8 +648,8 @@ prepare_indira_options(GlobalConfig, _Options = #opts{options = CLIOpts}) ->
   % XXX: keep the code under `try..catch' simple, without calling complex
   % functions, otherwise a bug in such a complex function will be reported as
   % a config file error
+  ErlangConfig = proplists:get_value(<<"erlang">>, GlobalConfig, []),
   try
-    ErlangConfig = proplists:get_value(<<"erlang">>, GlobalConfig, []),
     PidFile = proplists:get_value(pidfile, CLIOpts),
     % PidFile is already a string or undefined
     NodeName = proplists:get_value(<<"node_name">>, ErlangConfig),
@@ -709,29 +708,29 @@ cli_opt("--socket" = _Arg, _Opts) ->
 cli_opt(["--socket", Socket] = _Arg, Opts) ->
   _NewOpts = Opts#opts{admin_socket = Socket};
 
-cli_opt("--pidfile=" ++ PidFile = _Arg, Opts) ->
-  cli_opt(["--pidfile", PidFile], Opts);
+cli_opt("--pidfile=" ++ Path = _Arg, Opts) ->
+  cli_opt(["--pidfile", Path], Opts);
 cli_opt("--pidfile" = _Arg, _Opts) ->
   {need, 1};
-cli_opt(["--pidfile", PidFile] = _Arg, Opts = #opts{options = Options}) ->
-  _NewOpts = Opts#opts{options = [{pidfile, PidFile} | Options]};
+cli_opt(["--pidfile", Path] = _Arg, Opts = #opts{options = CLIOpts}) ->
+  _NewOpts = Opts#opts{options = [{pidfile, Path} | CLIOpts]};
 
-cli_opt("--config=" ++ Config = _Arg, Opts) ->
-  cli_opt(["--config", Config], Opts);
+cli_opt("--config=" ++ Path = _Arg, Opts) ->
+  cli_opt(["--config", Path], Opts);
 cli_opt("--config" = _Arg, _Opts) ->
   {need, 1};
-cli_opt(["--config", ConfigFile] = _Arg, Opts = #opts{options = Options}) ->
-  _NewOpts = Opts#opts{options = [{config, ConfigFile} | Options]};
+cli_opt(["--config", Path] = _Arg, Opts = #opts{options = CLIOpts}) ->
+  _NewOpts = Opts#opts{options = [{config, Path} | CLIOpts]};
 
 cli_opt("--timeout=" ++ Timeout = _Arg, Opts) ->
   cli_opt(["--timeout", Timeout], Opts);
 cli_opt("--timeout" = _Arg, _Opts) ->
   {need, 1};
-cli_opt(["--timeout", Timeout] = _Arg, Opts = #opts{options = Options}) ->
+cli_opt(["--timeout", Timeout] = _Arg, Opts = #opts{options = CLIOpts}) ->
   case make_integer(Timeout) of
     {ok, Seconds} when Seconds > 0 ->
       % NOTE: we need timeout in milliseconds
-      _NewOpts = Opts#opts{options = [{timeout, Seconds * 1000} | Options]};
+      _NewOpts = Opts#opts{options = [{timeout, Seconds * 1000} | CLIOpts]};
     _ ->
       {error, bad_timeout}
   end;
@@ -740,10 +739,10 @@ cli_opt("--read-block=" ++ ReadBlock = _Arg, Opts) ->
   cli_opt(["--read-block", ReadBlock], Opts);
 cli_opt("--read-block" = _Arg, _Opts) ->
   {need, 1};
-cli_opt(["--read-block", ReadBlock] = _Arg, Opts = #opts{options = Options}) ->
+cli_opt(["--read-block", ReadBlock] = _Arg, Opts = #opts{options = CLIOpts}) ->
   case make_integer(ReadBlock) of
     {ok, Bytes} when Bytes > 0, Bytes rem 8 == 0 ->
-      _NewOpts = Opts#opts{options = [{read_block, Bytes} | Options]};
+      _NewOpts = Opts#opts{options = [{read_block, Bytes} | CLIOpts]};
     _ ->
       {error, bad_read_block}
   end;
@@ -752,22 +751,22 @@ cli_opt("--read-tries=" ++ ReadTries = _Arg, Opts) ->
   cli_opt(["--read-tries", ReadTries], Opts);
 cli_opt("--read-tries" = _Arg, _Opts) ->
   {need, 1};
-cli_opt(["--read-tries", ReadTries] = _Arg, Opts = #opts{options = Options}) ->
+cli_opt(["--read-tries", ReadTries] = _Arg, Opts = #opts{options = CLIOpts}) ->
   case make_integer(ReadTries) of
     {ok, Number} when Number > 0 ->
-      _NewOpts = Opts#opts{options = [{read_tries, Number} | Options]};
+      _NewOpts = Opts#opts{options = [{read_tries, Number} | CLIOpts]};
     _ ->
       {error, bad_read_tries}
   end;
 
-cli_opt("--debug" = _Arg, Opts = #opts{options = Options}) ->
-  _NewOpts = Opts#opts{options = [{debug, true} | Options]};
+cli_opt("--debug" = _Arg, Opts = #opts{options = CLIOpts}) ->
+  _NewOpts = Opts#opts{options = [{debug, true} | CLIOpts]};
 
-cli_opt("--wait" = _Arg, Opts = #opts{options = Options}) ->
-  _NewOpts = Opts#opts{options = [{wait, true} | Options]};
+cli_opt("--wait" = _Arg, Opts = #opts{options = CLIOpts}) ->
+  _NewOpts = Opts#opts{options = [{wait, true} | CLIOpts]};
 
-cli_opt("--print-pid" = _Arg, Opts = #opts{options = Options}) ->
-  _NewOpts = Opts#opts{options = [{print_pid, true} | Options]};
+cli_opt("--print-pid" = _Arg, Opts = #opts{options = CLIOpts}) ->
+  _NewOpts = Opts#opts{options = [{print_pid, true} | CLIOpts]};
 
 cli_opt("-" ++ _ = _Arg, _Opts) ->
   {error, bad_option};
