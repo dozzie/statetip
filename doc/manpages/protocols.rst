@@ -121,6 +121,10 @@ contain all the other keys. Example (wrapped for readability):
     {"name": "interfaces", "origin": "web01", "key": "vlan512",
       "state": "up", "severity": "expected", "info": {"device": "eth0"}}
 
+If requested value doesn't exist, it's either reported as ``null``
+(``/json/<name>/<origin>/<key>`` path) or empty string
+(``/list/<name>/<origin>/<key>`` path).
+
 Beside ``/list/...`` and ``/json/...`` prefixes, there are two more paths
 available:
 

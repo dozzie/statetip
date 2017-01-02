@@ -1,6 +1,6 @@
 {application, statip, [
   {description, "StateTip event stream registry"},
-  {vsn, "0.1.0"},
+  {vsn, "0.1.1"},
   {registered, [
     statip_sup,
     statip_log,
@@ -23,7 +23,7 @@
     %{state_dir, "/var/lib/statetip"},
     {compaction_size, 10485760}, % 10MB, about 1 hour at 2.5kB/s
     {log_handlers, []}, % for statip_log; list of `{Module :: atom(), Args :: term()}'
-    %{error_logger_file, "/var/log/statetip/erlang.log},
+    %{error_logger_file, "/var/log/statetip/erlang.log"},
     {default_expiry, 43200} % 12h
   ]}
 ]}.

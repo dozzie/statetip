@@ -55,60 +55,74 @@
 
 -spec set(statip_value:name(), statip_value:origin(), related | unrelated,
           #value{}) ->
-  ok | {error, term()}.
+  ok | {error, term() | timeout}.
 
 set(GroupName, GroupOrigin, Type, Value = #value{})
 when Type == related; Type == unrelated ->
-  gen_server:call(?MODULE, {add, Type, GroupName, GroupOrigin, Value}).
+  call({add, Type, GroupName, GroupOrigin, Value}).
 
 %% @doc Append a "clear" record for specific key to log file.
 
 -spec clear(statip_value:name(), statip_value:origin(), statip_value:key()) ->
-  ok | {error, term()}.
+  ok | {error, term() | timeout}.
 
 clear(GroupName, GroupOrigin, Key) ->
-  gen_server:call(?MODULE, {clear, GroupName, GroupOrigin, Key}).
+  call({clear, GroupName, GroupOrigin, Key}).
 
 %% @doc Append a "clear" record for a value group to state log file.
 
 -spec clear(statip_value:name(), statip_value:origin()) ->
-  ok | {error, term()}.
+  ok | {error, term() | timeout}.
 
 clear(GroupName, GroupOrigin) ->
-  gen_server:call(?MODULE, {clear, GroupName, GroupOrigin}).
+  call({clear, GroupName, GroupOrigin}).
 
 %% @doc Append a "rotate" record for related value group.
 
 -spec rotate(statip_value:name(), statip_value:origin()) ->
-  ok | {error, term()}.
+  ok | {error, term() | timeout}.
 
 rotate(GroupName, GroupOrigin) ->
-  gen_server:call(?MODULE, {rotate, GroupName, GroupOrigin}).
+  call({rotate, GroupName, GroupOrigin}).
 
 %% @doc Start log compaction process outside of its schedule.
 
 -spec compact() ->
-  ok | {error, already_running}.
+  ok | {error, already_running | timeout}.
 
 compact() ->
-  gen_server:call(?MODULE, compact).
+  call(compact).
 
 %% @doc Reopen state log file.
 
 -spec reopen() ->
-  ok | {error, file:posix()}.
+  ok | {error, file:posix() | timeout}.
 
 reopen() ->
-  gen_server:call(?MODULE, reopen).
+  call(reopen).
 
 %% @doc Reload configuration (state log directory, compaction size) and reopen
 %%   the log file if necessary.
 
 -spec reload() ->
-  ok | {error, term()}.
+  ok | {error, term() | timeout}.
 
 reload() ->
-  gen_server:call(?MODULE, reload).
+  call(reload).
+
+%% @doc {@link gen_server:call/2} wrapper that doesn't die on timeout.
+
+-spec call(term()) ->
+  Result :: term() | {error, timeout}.
+
+call(Request) ->
+  try
+    gen_server:call(?MODULE, Request)
+  catch
+    exit:{timeout,_} ->
+      statip_log:warn(state_log, "state logger can't keep up with requests", []),
+      {error, timeout}
+  end.
 
 %%%---------------------------------------------------------------------------
 %%% supervision tree API
@@ -138,6 +152,7 @@ start_link() ->
 
 init([] = _Args) ->
   statip_log:set_context(state_log, []),
+  erlang:send_after(?COMPACT_DECISION_INTERVAL, self(), check_log_size),
   % TODO: read the values of read block and read retries
   case application:get_env(state_dir) of
     {ok, LogDir} ->
@@ -147,9 +162,10 @@ init([] = _Args) ->
       case prepare_logfile(LogDir) of
         {ok, Entries} ->
           statip_log:info("starting state logger"),
-          ok = dump_logfile(Entries, LogDir), % TODO: error handling
+          % it's startup code; if writing a log file fails here, operator has
+          % things to fix anyway
+          ok = dump_logfile(Entries, LogDir),
           ok = start_keepers(Entries),
-          erlang:send_after(?COMPACT_DECISION_INTERVAL, self(), check_log_size),
           {ok, LogH} = statip_flog:open(LogFile, [write]),
           {ok, CompactionSize} = application:get_env(compaction_size),
           State = #state{
@@ -289,6 +305,7 @@ handle_cast(_Request, State) ->
 %% @doc Handle incoming messages.
 
 handle_info(check_log_size = _Message, State = #state{log_dir = undefined}) ->
+  erlang:send_after(?COMPACT_DECISION_INTERVAL, self(), check_log_size),
   {noreply, State};
 handle_info(check_log_size = _Message, State = #state{log_dir = LogDir}) ->
   % XXX: this clause also clears remembered write errors, which serves
@@ -332,22 +349,32 @@ handle_info({compaction_finished, Ref, Result} = _Message,
   case finish_compaction(Result, CompactHandle) of
     {ok, Records} ->
       {ok, OldSize} = statip_flog:file_size(LogH),
-      ok = dump_logfile(Records, LogDir), % TODO: error handling
-      statip_flog:close(LogH),
-      % XXX: `dump_logfile()' has just succeeded, so another `open()' should
-      % work as well
-      {ok, NewLogH} = statip_flog:open(LogFile, [write]),
-      {ok, NewSize} = statip_flog:file_size(NewLogH),
-      statip_log:info("log compacted", [
-        {old_size, OldSize},
-        {new_size, NewSize}
-      ]),
-      NewState = State#state{
-        compaction = undefined,
-        log_handle = NewLogH,
-        last_write_error = undefined
-      },
-      {noreply, NewState};
+      case dump_logfile(Records, LogDir) of
+        ok ->
+          statip_flog:close(LogH),
+          % XXX: `dump_logfile()' has just succeeded, so another `open()'
+          % should work as well
+          {ok, NewLogH} = statip_flog:open(LogFile, [write]),
+          {ok, NewSize} = statip_flog:file_size(NewLogH),
+          statip_log:info("log compacted", [
+            {old_size, OldSize},
+            {new_size, NewSize}
+          ]),
+          NewState = State#state{
+            compaction = undefined,
+            log_handle = NewLogH,
+            last_write_error = undefined
+          },
+          {noreply, NewState};
+        {error, Reason} ->
+          statip_log:err("writing compaction results failed",
+                         [{error, {term, Reason}}]),
+          NewState = State#state{
+            compaction = undefined,
+            last_write_error = Reason
+          },
+          {noreply, NewState}
+      end;
     {error, Reason} ->
       statip_log:err("compaction process failed", [{error, {term, Reason}}]),
       NewState = State#state{compaction = undefined},
@@ -569,8 +596,7 @@ dump_logfile(none = _Entries, _LogDir) ->
   ok;
 dump_logfile(Entries, LogDir) ->
   LogFile = filename:join(LogDir, ?LOG_FILE_COMPACT_TEMP),
-  ok = remove_file(LogFile), % TODO: error handling
-  case statip_flog:open(LogFile, [write]) of
+  case statip_flog:open(LogFile, [write, truncate]) of
     {ok, Handle} ->
       try statip_flog:fold(fun write_records/4, Handle, Entries) of
         _ ->
@@ -617,22 +643,6 @@ write_records(_Handle, _Type, _Name, _Origin, [] = _Values) ->
 write_records(Handle, Type, Name, Origin, [Value | Rest] = _Values) ->
   case statip_flog:append(Handle, {Type, Name, Origin, Value}) of
     ok -> write_records(Handle, Type, Name, Origin, Rest);
-    {error, Reason} -> {error, Reason}
-  end.
-
-%% }}}
-%%----------------------------------------------------------
-%% remove_file() {{{
-
-%% @doc Ensure the specified file doesn't exist.
-
--spec remove_file(file:filename()) ->
-  ok | {error, file:posix()}.
-
-remove_file(Filename) ->
-  case file:delete(Filename) of
-    ok -> ok;
-    {error, enoent} -> ok;
     {error, Reason} -> {error, Reason}
   end.
 

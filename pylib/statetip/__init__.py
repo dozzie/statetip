@@ -13,6 +13,8 @@
 
 .. autoexception:: NetworkError
 
+.. autoexception:: HTTPError
+
 .. autoexception:: Timeout
 
 '''
@@ -23,7 +25,7 @@ import json
 
 #-----------------------------------------------------------------------------
 
-__VERSION__ = "0.1.0"
+__VERSION__ = "0.1.1"
 
 #-----------------------------------------------------------------------------
 
@@ -44,6 +46,22 @@ class NetworkError(StateTipException):
     Network error exception.
     '''
     pass
+
+class HTTPError(NetworkError):
+    '''
+    HTTP error exception, a subclass of :exc:`NetworkError`.
+    '''
+    def __init__(self, code, reason):
+        '''
+        :param code: HTTP status code
+        :param reason: message returned in status line
+
+        Both parameters are available as exception's fields (``e.code`` and
+        ``e.reason``, respectively).
+        '''
+        super(HTTPError, self).__init__("HTTP error: [%s] %s" % (code, reason))
+        self.code = code
+        self.reason = reason
 
 class Timeout(StateTipException):
     '''
@@ -171,7 +189,7 @@ class StateTipReader:
         try:
             reply_handle = urllib2.urlopen(request, timeout = self.timeout)
         except urllib2.HTTPError, e:
-            raise NetworkError("HTTP error: [%s] %s" % (e.code, e.reason))
+            raise HTTPError(e.code, e.reason)
         except urllib2.URLError, e:
             raise NetworkError("connection error: %s" % (e.reason))
         except socket.timeout, e:
@@ -275,12 +293,12 @@ class StateTipReader:
         :type origin: string or ``None``
         :param key: value's key
         :type key: string
-        :return: dictionary
+        :return: dictionary or ``None``
         :throws: :exc:`AddressError`, :exc:`NetworkError`, :exc:`Timeout`,
             :exc:`ValueError`
 
-        Retrieve a specific value. Returned value will similar to the
-        following dictionary:
+        Retrieve a specific value (or ``None`` if value doesn't exist).
+        Returned value will similar to the following dictionary:
 
         .. code-block:: python
 

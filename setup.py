@@ -5,7 +5,7 @@ from glob import glob
 
 setup(
     name         = "statetip",
-    version      = "0.1.0",
+    version      = "0.1.1",
     description  = "StateTip event stream registry client",
     scripts      = ["bin/statetip"],
     packages     = find_packages("pylib"),

@@ -25,7 +25,6 @@
 %%%---------------------------------------------------------------------------
 %%% types {{{
 
--define(APPLICATION, statip).
 -define(ADMIN_COMMAND_MODULE, statip_command_handler).
 % XXX: `status' and `stop' commands are bound to few specific errors this
 % module returns; this can't be easily moved to a config/option
@@ -141,7 +140,7 @@ handle_command(start = _Command,
                             {?MODULE, load_app_config, [ConfigFile, Options]}),
       case setup_applications(Config, Options) of
         {ok, IndiraOptions} ->
-          indira_app:daemonize(?APPLICATION, [
+          indira_app:daemonize(statip, [
             {listen, [{?ADMIN_SOCKET_TYPE, Socket}]},
             {command, {?ADMIN_COMMAND_MODULE, []}} |
             IndiraOptions
@@ -380,7 +379,7 @@ handle_reply(Reply, Command, _Options) ->
 %% @doc Convert an error to a printable form.
 
 -spec format_error(term()) ->
-  iolist().
+  iolist() | binary().
 
 %% command line parsing
 format_error({bad_command, Command} = _Reason) ->
@@ -402,9 +401,9 @@ format_error(too_little_args = _Reason) ->
 
 %% config file handling (`start')
 format_error({config_read, Error} = _Reason) ->
-  io_lib:format("error while reading config file: ~1024p", [Error]);
+  ["error while reading config file: ", file:format_error(Error)];
 format_error({config_format, Error} = _Reason) ->
-  io_lib:format("config file parsing error: ~1024p", [Error]);
+  ["config file parsing error: ", format_etoml_error(Error)];
 format_error({configure, {[Section, Option] = _Key, _Env, _Error}} = _Reason) ->
   % `Error' is what `config_check()' returned, `Key' is which key was it;
   % see `configure_statip()' for used keys
@@ -421,18 +420,22 @@ format_error({configure, {log_file, Error}} = _Reason) ->
 
 %% request sending errors
 format_error({send, bad_request_format} = _Reason) ->
-  "unserializable request format";
+  "invalid request format (programmer's error)";
 format_error({send, bad_reply_format} = _Reason) ->
-  "invalid reply format";
+  "invalid reply format (daemon's error)";
 format_error({send, timeout} = _Reason) ->
   "operation timed out";
 format_error({send, Error} = _Reason) ->
   io_lib:format("request sending error: ~1024p", [Error]);
 
-format_error(unrecognized_reply = _Reason) ->
-  "unrecognized daemon's reply";
 format_error('TODO' = _Reason) ->
   "operation not implemented yet (daemon side)";
+
+format_error(unrecognized_reply = _Reason) ->
+  "unrecognized daemon's reply";
+format_error({bad_return_value, Value} = _Reason) ->
+  io_lib:format("invalid return value from callback: ~1024p", [Value]);
+
 format_error(Reason) when is_binary(Reason) ->
   Reason;
 format_error(Reason) ->
@@ -487,10 +490,27 @@ read_config_file(ConfigFile) ->
       {error, {config_read, Reason}}
   end.
 
+format_etoml_error({invalid_key, Line}) ->
+  io_lib:format("line ~B: invalid key name", [Line]);
+format_etoml_error({invalid_group, Line}) ->
+  io_lib:format("line ~B: invalid group name", [Line]);
+format_etoml_error({invalid_date, Line}) ->
+  io_lib:format("line ~B: invalid date format", [Line]);
+format_etoml_error({invalid_number, Line}) ->
+  io_lib:format("line ~B: invalid number value or forgotten quotes", [Line]);
+format_etoml_error({invalid_array, Line}) ->
+  io_lib:format("line ~B: invalid array format", [Line]);
+format_etoml_error({invalid_string, Line}) ->
+  io_lib:format("line ~B: invalid string format", [Line]);
+format_etoml_error({undefined_value, Line}) ->
+  io_lib:format("line ~B: value not provided", [Line]);
+format_etoml_error({duplicated_key, Key}) ->
+  io_lib:format("duplicated key: ~s", [Key]).
+
 %% @doc Configure environment (Erlang, Indira, main app) from loaded config.
 
 -spec setup_applications(config(), #opts{}) ->
-  ok | {error, term()}.
+  {ok, [indira_app:daemon_option()]} | {error, term()}.
 
 setup_applications(Config, Options) ->
   case configure_statip(Config, Options) of
@@ -628,8 +648,8 @@ prepare_indira_options(GlobalConfig, _Options = #opts{options = CLIOpts}) ->
   % XXX: keep the code under `try..catch' simple, without calling complex
   % functions, otherwise a bug in such a complex function will be reported as
   % a config file error
+  ErlangConfig = proplists:get_value(<<"erlang">>, GlobalConfig, []),
   try
-    ErlangConfig = proplists:get_value(<<"erlang">>, GlobalConfig, []),
     PidFile = proplists:get_value(pidfile, CLIOpts),
     % PidFile is already a string or undefined
     NodeName = proplists:get_value(<<"node_name">>, ErlangConfig),
@@ -688,29 +708,29 @@ cli_opt("--socket" = _Arg, _Opts) ->
 cli_opt(["--socket", Socket] = _Arg, Opts) ->
   _NewOpts = Opts#opts{admin_socket = Socket};
 
-cli_opt("--pidfile=" ++ PidFile = _Arg, Opts) ->
-  cli_opt(["--pidfile", PidFile], Opts);
+cli_opt("--pidfile=" ++ Path = _Arg, Opts) ->
+  cli_opt(["--pidfile", Path], Opts);
 cli_opt("--pidfile" = _Arg, _Opts) ->
   {need, 1};
-cli_opt(["--pidfile", PidFile] = _Arg, Opts = #opts{options = Options}) ->
-  _NewOpts = Opts#opts{options = [{pidfile, PidFile} | Options]};
+cli_opt(["--pidfile", Path] = _Arg, Opts = #opts{options = CLIOpts}) ->
+  _NewOpts = Opts#opts{options = [{pidfile, Path} | CLIOpts]};
 
-cli_opt("--config=" ++ Config = _Arg, Opts) ->
-  cli_opt(["--config", Config], Opts);
+cli_opt("--config=" ++ Path = _Arg, Opts) ->
+  cli_opt(["--config", Path], Opts);
 cli_opt("--config" = _Arg, _Opts) ->
   {need, 1};
-cli_opt(["--config", ConfigFile] = _Arg, Opts = #opts{options = Options}) ->
-  _NewOpts = Opts#opts{options = [{config, ConfigFile} | Options]};
+cli_opt(["--config", Path] = _Arg, Opts = #opts{options = CLIOpts}) ->
+  _NewOpts = Opts#opts{options = [{config, Path} | CLIOpts]};
 
 cli_opt("--timeout=" ++ Timeout = _Arg, Opts) ->
   cli_opt(["--timeout", Timeout], Opts);
 cli_opt("--timeout" = _Arg, _Opts) ->
   {need, 1};
-cli_opt(["--timeout", Timeout] = _Arg, Opts = #opts{options = Options}) ->
+cli_opt(["--timeout", Timeout] = _Arg, Opts = #opts{options = CLIOpts}) ->
   case make_integer(Timeout) of
     {ok, Seconds} when Seconds > 0 ->
       % NOTE: we need timeout in milliseconds
-      _NewOpts = Opts#opts{options = [{timeout, Seconds * 1000} | Options]};
+      _NewOpts = Opts#opts{options = [{timeout, Seconds * 1000} | CLIOpts]};
     _ ->
       {error, bad_timeout}
   end;
@@ -719,10 +739,10 @@ cli_opt("--read-block=" ++ ReadBlock = _Arg, Opts) ->
   cli_opt(["--read-block", ReadBlock], Opts);
 cli_opt("--read-block" = _Arg, _Opts) ->
   {need, 1};
-cli_opt(["--read-block", ReadBlock] = _Arg, Opts = #opts{options = Options}) ->
+cli_opt(["--read-block", ReadBlock] = _Arg, Opts = #opts{options = CLIOpts}) ->
   case make_integer(ReadBlock) of
     {ok, Bytes} when Bytes > 0, Bytes rem 8 == 0 ->
-      _NewOpts = Opts#opts{options = [{read_block, Bytes} | Options]};
+      _NewOpts = Opts#opts{options = [{read_block, Bytes} | CLIOpts]};
     _ ->
       {error, bad_read_block}
   end;
@@ -731,22 +751,22 @@ cli_opt("--read-tries=" ++ ReadTries = _Arg, Opts) ->
   cli_opt(["--read-tries", ReadTries], Opts);
 cli_opt("--read-tries" = _Arg, _Opts) ->
   {need, 1};
-cli_opt(["--read-tries", ReadTries] = _Arg, Opts = #opts{options = Options}) ->
+cli_opt(["--read-tries", ReadTries] = _Arg, Opts = #opts{options = CLIOpts}) ->
   case make_integer(ReadTries) of
     {ok, Number} when Number > 0 ->
-      _NewOpts = Opts#opts{options = [{read_tries, Number} | Options]};
+      _NewOpts = Opts#opts{options = [{read_tries, Number} | CLIOpts]};
     _ ->
       {error, bad_read_tries}
   end;
 
-cli_opt("--debug" = _Arg, Opts = #opts{options = Options}) ->
-  _NewOpts = Opts#opts{options = [{debug, true} | Options]};
+cli_opt("--debug" = _Arg, Opts = #opts{options = CLIOpts}) ->
+  _NewOpts = Opts#opts{options = [{debug, true} | CLIOpts]};
 
-cli_opt("--wait" = _Arg, Opts = #opts{options = Options}) ->
-  _NewOpts = Opts#opts{options = [{wait, true} | Options]};
+cli_opt("--wait" = _Arg, Opts = #opts{options = CLIOpts}) ->
+  _NewOpts = Opts#opts{options = [{wait, true} | CLIOpts]};
 
-cli_opt("--print-pid" = _Arg, Opts = #opts{options = Options}) ->
-  _NewOpts = Opts#opts{options = [{print_pid, true} | Options]};
+cli_opt("--print-pid" = _Arg, Opts = #opts{options = CLIOpts}) ->
+  _NewOpts = Opts#opts{options = [{print_pid, true} | CLIOpts]};
 
 cli_opt("-" ++ _ = _Arg, _Opts) ->
   {error, bad_option};

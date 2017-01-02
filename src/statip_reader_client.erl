@@ -257,10 +257,14 @@ process_request(_State = #state{path = Path, headers = _Headers}) ->
       case statip_value:get_value(Name, Origin, Key) of
         Value = #value{} ->
           {ok, JSON} = statip_value:to_json(Name, Origin, Value),
-          {ok, [content_type(Type)], [JSON, $\n]};
-        none ->
-          {error, 404}
-      end;
+          Reply = [JSON, $\n];
+        none when Type == json ->
+          {ok, JSON} = statip_json:encode(null),
+          Reply = [JSON, $\n];
+        none when Type == list ->
+          Reply = ""
+      end,
+      {ok, [content_type(Type)], Reply};
     {error, _Reason} ->
       {error, 404}
   end.
