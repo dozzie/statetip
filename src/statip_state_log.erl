@@ -152,6 +152,7 @@ start_link() ->
 
 init([] = _Args) ->
   statip_log:set_context(state_log, []),
+  erlang:send_after(?COMPACT_DECISION_INTERVAL, self(), check_log_size),
   % TODO: read the values of read block and read retries
   case application:get_env(state_dir) of
     {ok, LogDir} ->
@@ -165,7 +166,6 @@ init([] = _Args) ->
           % things to fix anyway
           ok = dump_logfile(Entries, LogDir),
           ok = start_keepers(Entries),
-          erlang:send_after(?COMPACT_DECISION_INTERVAL, self(), check_log_size),
           {ok, LogH} = statip_flog:open(LogFile, [write]),
           {ok, CompactionSize} = application:get_env(compaction_size),
           State = #state{
@@ -305,6 +305,7 @@ handle_cast(_Request, State) ->
 %% @doc Handle incoming messages.
 
 handle_info(check_log_size = _Message, State = #state{log_dir = undefined}) ->
+  erlang:send_after(?COMPACT_DECISION_INTERVAL, self(), check_log_size),
   {noreply, State};
 handle_info(check_log_size = _Message, State = #state{log_dir = LogDir}) ->
   % XXX: this clause also clears remembered write errors, which serves
