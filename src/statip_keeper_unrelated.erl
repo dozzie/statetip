@@ -349,9 +349,11 @@ store_prune_expired(Now, Entries, ExpiryQ, {Name, Origin} = ValueGroup) ->
 
 %% @doc Retrieve specific value from value store.
 
--spec store_get_value(statip_value:key(), gb_tree()) ->
+-spec store_get_value(statip_value:key(), gb_tree() | undefined) ->
   #value{} | none.
 
+store_get_value(_Key, undefined = _Entries) ->
+  none;
 store_get_value(Key, Entries) ->
   case gb_trees:lookup(Key, Entries) of
     {value, Value} -> Value;
@@ -360,18 +362,22 @@ store_get_value(Key, Entries) ->
 
 %% @doc Retrieve all records from record store.
 
--spec store_get_all_values(gb_tree()) ->
+-spec store_get_all_values(gb_tree() | undefined) ->
   [#value{}].
 
+store_get_all_values(undefined = _Entries) ->
+  [];
 store_get_all_values(Entries) ->
   Values = gb_trees:values(Entries),
   lists:keysort(#value.sort_key, Values).
 
 %% @doc Retrieve keys for the records from record store.
 
--spec store_get_keys(gb_tree()) ->
+-spec store_get_keys(gb_tree() | undefined) ->
   [statip_value:key()].
 
+store_get_keys(undefined = _Entries) ->
+  [];
 store_get_keys(Entries) ->
   gb_trees:keys(Entries).
 
