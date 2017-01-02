@@ -67,7 +67,7 @@ This can be changed with :option:`--json` option, which causes
 
     List origins of a specific value group.
 
-    Null origin is printed as empty line (in JSON mode it's ``null``, as one
+    Null origin is printed as ``<null>`` (in JSON mode it's ``null``, as one
     would expect).
 
 .. describe:: statetip --reader <name> <origin>

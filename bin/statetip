@@ -247,7 +247,7 @@ else: # MODE_READER
             print json.dumps(data, sort_keys = True)
         elif mode == "list":
             for d in data:
-                print d if d is not None else ""
+                print d if d is not None else "<null>"
         elif mode == "list-json":
             for d in data:
                 print json.dumps(d, sort_keys = True)
