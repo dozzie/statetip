@@ -55,60 +55,74 @@
 
 -spec set(statip_value:name(), statip_value:origin(), related | unrelated,
           #value{}) ->
-  ok | {error, term()}.
+  ok | {error, term() | timeout}.
 
 set(GroupName, GroupOrigin, Type, Value = #value{})
 when Type == related; Type == unrelated ->
-  gen_server:call(?MODULE, {add, Type, GroupName, GroupOrigin, Value}).
+  call({add, Type, GroupName, GroupOrigin, Value}).
 
 %% @doc Append a "clear" record for specific key to log file.
 
 -spec clear(statip_value:name(), statip_value:origin(), statip_value:key()) ->
-  ok | {error, term()}.
+  ok | {error, term() | timeout}.
 
 clear(GroupName, GroupOrigin, Key) ->
-  gen_server:call(?MODULE, {clear, GroupName, GroupOrigin, Key}).
+  call({clear, GroupName, GroupOrigin, Key}).
 
 %% @doc Append a "clear" record for a value group to state log file.
 
 -spec clear(statip_value:name(), statip_value:origin()) ->
-  ok | {error, term()}.
+  ok | {error, term() | timeout}.
 
 clear(GroupName, GroupOrigin) ->
-  gen_server:call(?MODULE, {clear, GroupName, GroupOrigin}).
+  call({clear, GroupName, GroupOrigin}).
 
 %% @doc Append a "rotate" record for related value group.
 
 -spec rotate(statip_value:name(), statip_value:origin()) ->
-  ok | {error, term()}.
+  ok | {error, term() | timeout}.
 
 rotate(GroupName, GroupOrigin) ->
-  gen_server:call(?MODULE, {rotate, GroupName, GroupOrigin}).
+  call({rotate, GroupName, GroupOrigin}).
 
 %% @doc Start log compaction process outside of its schedule.
 
 -spec compact() ->
-  ok | {error, already_running}.
+  ok | {error, already_running | timeout}.
 
 compact() ->
-  gen_server:call(?MODULE, compact).
+  call(compact).
 
 %% @doc Reopen state log file.
 
 -spec reopen() ->
-  ok | {error, file:posix()}.
+  ok | {error, file:posix() | timeout}.
 
 reopen() ->
-  gen_server:call(?MODULE, reopen).
+  call(reopen).
 
 %% @doc Reload configuration (state log directory, compaction size) and reopen
 %%   the log file if necessary.
 
 -spec reload() ->
-  ok | {error, term()}.
+  ok | {error, term() | timeout}.
 
 reload() ->
-  gen_server:call(?MODULE, reload).
+  call(reload).
+
+%% @doc {@link gen_server:call/2} wrapper that doesn't die on timeout.
+
+-spec call(term()) ->
+  Result :: term() | {error, timeout}.
+
+call(Request) ->
+  try
+    gen_server:call(?MODULE, Request)
+  catch
+    exit:{timeout,_} ->
+      statip_log:warn(state_log, "state logger can't keep up with requests", []),
+      {error, timeout}
+  end.
 
 %%%---------------------------------------------------------------------------
 %%% supervision tree API
