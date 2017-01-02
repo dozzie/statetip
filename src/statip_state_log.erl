@@ -583,8 +583,7 @@ dump_logfile(none = _Entries, _LogDir) ->
   ok;
 dump_logfile(Entries, LogDir) ->
   LogFile = filename:join(LogDir, ?LOG_FILE_COMPACT_TEMP),
-  ok = remove_file(LogFile), % TODO: error handling
-  case statip_flog:open(LogFile, [write]) of
+  case statip_flog:open(LogFile, [write, truncate]) of
     {ok, Handle} ->
       try statip_flog:fold(fun write_records/4, Handle, Entries) of
         _ ->
@@ -631,22 +630,6 @@ write_records(_Handle, _Type, _Name, _Origin, [] = _Values) ->
 write_records(Handle, Type, Name, Origin, [Value | Rest] = _Values) ->
   case statip_flog:append(Handle, {Type, Name, Origin, Value}) of
     ok -> write_records(Handle, Type, Name, Origin, Rest);
-    {error, Reason} -> {error, Reason}
-  end.
-
-%% }}}
-%%----------------------------------------------------------
-%% remove_file() {{{
-
-%% @doc Ensure the specified file doesn't exist.
-
--spec remove_file(file:filename()) ->
-  ok | {error, file:posix()}.
-
-remove_file(Filename) ->
-  case file:delete(Filename) of
-    ok -> ok;
-    {error, enoent} -> ok;
     {error, Reason} -> {error, Reason}
   end.
 
