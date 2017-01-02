@@ -161,7 +161,9 @@ init([] = _Args) ->
       case prepare_logfile(LogDir) of
         {ok, Entries} ->
           statip_log:info("starting state logger"),
-          ok = dump_logfile(Entries, LogDir), % TODO: error handling
+          % it's startup code; if writing a log file fails here, operator has
+          % things to fix anyway
+          ok = dump_logfile(Entries, LogDir),
           ok = start_keepers(Entries),
           erlang:send_after(?COMPACT_DECISION_INTERVAL, self(), check_log_size),
           {ok, LogH} = statip_flog:open(LogFile, [write]),
@@ -346,22 +348,32 @@ handle_info({compaction_finished, Ref, Result} = _Message,
   case finish_compaction(Result, CompactHandle) of
     {ok, Records} ->
       {ok, OldSize} = statip_flog:file_size(LogH),
-      ok = dump_logfile(Records, LogDir), % TODO: error handling
-      statip_flog:close(LogH),
-      % XXX: `dump_logfile()' has just succeeded, so another `open()' should
-      % work as well
-      {ok, NewLogH} = statip_flog:open(LogFile, [write]),
-      {ok, NewSize} = statip_flog:file_size(NewLogH),
-      statip_log:info("log compacted", [
-        {old_size, OldSize},
-        {new_size, NewSize}
-      ]),
-      NewState = State#state{
-        compaction = undefined,
-        log_handle = NewLogH,
-        last_write_error = undefined
-      },
-      {noreply, NewState};
+      case dump_logfile(Records, LogDir) of
+        ok ->
+          statip_flog:close(LogH),
+          % XXX: `dump_logfile()' has just succeeded, so another `open()'
+          % should work as well
+          {ok, NewLogH} = statip_flog:open(LogFile, [write]),
+          {ok, NewSize} = statip_flog:file_size(NewLogH),
+          statip_log:info("log compacted", [
+            {old_size, OldSize},
+            {new_size, NewSize}
+          ]),
+          NewState = State#state{
+            compaction = undefined,
+            log_handle = NewLogH,
+            last_write_error = undefined
+          },
+          {noreply, NewState};
+        {error, Reason} ->
+          statip_log:err("writing compaction results failed",
+                         [{error, {term, Reason}}]),
+          NewState = State#state{
+            compaction = undefined,
+            last_write_error = Reason
+          },
+          {noreply, NewState}
+      end;
     {error, Reason} ->
       statip_log:err("compaction process failed", [{error, {term, Reason}}]),
       NewState = State#state{compaction = undefined},
