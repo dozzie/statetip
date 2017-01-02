@@ -1,3 +1,16 @@
+statetip (0.1.1-1) stable; urgency=low
+
+  * Stability improvements for unreliable disk I/O.
+  * More precise exceptions in Python module.
+  * Minor errors and typos in documentation and supporting files.
+  * Minor change in reader protocol (reporting non-existing values).
+  * Unified null origin in `statetip' and `statetipd list'.
+  * Bugfix: `statetipd delete' didn't work with null origin.
+  * Bugfix: ENOSPC caused disk logger to regularly restart.
+  * Bugfix: disk logger checks log size after enabling it in config.
+
+ -- Stanislaw Klekot <dozzie@jarowit.net>  Mon, 02 Jan 2017 23:25:38 +0100
+
 statetip (0.1.0-1) stable; urgency=low
 
   * Initial release.
