@@ -275,12 +275,12 @@ class StateTipReader:
         :type origin: string or ``None``
         :param key: value's key
         :type key: string
-        :return: dictionary
+        :return: dictionary or ``None``
         :throws: :exc:`AddressError`, :exc:`NetworkError`, :exc:`Timeout`,
             :exc:`ValueError`
 
-        Retrieve a specific value. Returned value will similar to the
-        following dictionary:
+        Retrieve a specific value (or ``None`` if value doesn't exist).
+        Returned value will similar to the following dictionary:
 
         .. code-block:: python
 

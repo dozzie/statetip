@@ -289,18 +289,19 @@ else: # MODE_READER
                 origin = None
 
             value = reader.get(name, origin, key)
-            if options.print_json:
-                mode = "json"
-            else:
-                mode = "string"
+            if value is not None:
+                if options.print_json:
+                    mode = "json"
+                else:
+                    mode = "string"
 
-            for field in options.print_fields:
-                if field == "all":
-                    dump(value, mode = "json")
-                elif field == "info":
-                    dump(value["info"], mode = "json")
-                elif field == "state" or field == "severity":
-                    dump(value[field], mode)
+                for field in options.print_fields:
+                    if field == "all":
+                        dump(value, mode = "json")
+                    elif field == "info":
+                        dump(value["info"], mode = "json")
+                    elif field == "state" or field == "severity":
+                        dump(value[field], mode)
     except KeyboardInterrupt:
         pass
     except statetip.StateTipException, e:
