@@ -534,6 +534,7 @@ setup_applications(Config, Options) ->
 configure_statip(GlobalConfig, _Options) ->
   SetSpecs = [
     {[<<"senders">>, <<"listen">>], {statip, senders}},
+    {[<<"senders">>, <<"buffer_size">>], {statip, senders_tcp_buffer_size}},
     {[<<"readers">>, <<"listen">>], {statip, readers}},
     {[<<"state_log">>, <<"directory">>], {statip, state_dir}},
     {[<<"state_log">>, <<"compaction_size">>], {statip, compaction_size}},
@@ -569,6 +570,9 @@ config_check([_Section, <<"listen">>] = _Key, _EnvKey, Values) ->
   catch
     error:_ -> {error, invalid_value}
   end;
+config_check([<<"senders">>, <<"buffer_size">>] = _Key, _EnvKey, Size)
+when is_integer(Size), Size > 0 ->
+  ok;
 config_check([<<"state_log">>, <<"directory">>] = _Key, _EnvKey, Value)
 when is_binary(Value) ->
   ok;

@@ -43,9 +43,12 @@
   ok.
 
 take_over(Socket) ->
+  {ok, BufferSize} = application:get_env(statip, senders_tcp_buffer_size),
   {ok, Pid} = statip_sender_client_sup:spawn_worker(Socket),
   ok = gen_tcp:controlling_process(Socket, Pid),
-  ok = inet:setopts(Socket, [binary, {packet, line}, {active, once}]),
+  ok = inet:setopts(Socket, [
+    binary, {packet, line}, {buffer, BufferSize}, {active, once}
+  ]),
   ok.
 
 %%%---------------------------------------------------------------------------
