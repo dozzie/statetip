@@ -30,7 +30,7 @@
 -record(state, {
   group_name :: statip_value:name(),
   group_origin :: statip_value:origin(),
-  entries :: gb_tree(), % statip_value:key() -> #value{}
+  entries :: gb_trees:tree(), % statip_value:key() -> #value{}
   expiry :: statip_pqueue:pqueue() % {ValueExpiryTime, ValueKey}
 }).
 
@@ -277,9 +277,9 @@ code_change(_OldVsn, State, _Extra) ->
 
 %% @doc Add a new value to value store and to expiry queue.
 
--spec store_add(#value{}, gb_tree() | undefined,
+-spec store_add(#value{}, gb_trees:tree() | undefined,
                 statip_pqueue:pqueue() | undefined) ->
-  {gb_tree(), statip_pqueue:pqueue()}.
+  {gb_trees:tree(), statip_pqueue:pqueue()}.
 
 store_add(Value, undefined = _Entries, ExpiryQ) ->
   store_add(Value, gb_trees:empty(), ExpiryQ);
@@ -299,9 +299,9 @@ store_add(Value = #value{key = Key, expires = Expires}, Entries, ExpiryQ) ->
 
 %% @doc Delete a value from value store and from expiry queue.
 
--spec store_delete(statip_value:key(), gb_tree() | undefined,
+-spec store_delete(statip_value:key(), gb_trees:tree() | undefined,
                    statip_pqueue:pqueue() | undefined) ->
-  {gb_tree(), statip_pqueue:pqueue()}.
+  {gb_trees:tree(), statip_pqueue:pqueue()}.
 
 store_delete(Key, undefined = _Entries, ExpiryQ) ->
   store_delete(Key, gb_trees:empty(), ExpiryQ);
@@ -321,9 +321,9 @@ store_delete(Key, Entries, ExpiryQ) ->
 
 %% @doc Remove expired values from value store and expiry queue.
 
--spec store_prune_expired(gb_tree(), statip_pqueue:pqueue(),
+-spec store_prune_expired(gb_trees:tree(), statip_pqueue:pqueue(),
                           {statip_value:name(), statip_value:origin()}) ->
-  {gb_tree(), statip_pqueue:pqueue()}.
+  {gb_trees:tree(), statip_pqueue:pqueue()}.
 
 store_prune_expired(Entries, ExpiryQ, ValueGroup) ->
   store_prune_expired(statip_value:timestamp(), Entries, ExpiryQ, ValueGroup).
@@ -349,7 +349,7 @@ store_prune_expired(Now, Entries, ExpiryQ, {Name, Origin} = ValueGroup) ->
 
 %% @doc Retrieve specific value from value store.
 
--spec store_get_value(statip_value:key(), gb_tree() | undefined) ->
+-spec store_get_value(statip_value:key(), gb_tree:tree() | undefined) ->
   #value{} | none.
 
 store_get_value(_Key, undefined = _Entries) ->
@@ -362,7 +362,7 @@ store_get_value(Key, Entries) ->
 
 %% @doc Retrieve all records from record store.
 
--spec store_get_all_values(gb_tree() | undefined) ->
+-spec store_get_all_values(gb_trees:tree() | undefined) ->
   [#value{}].
 
 store_get_all_values(undefined = _Entries) ->
@@ -373,7 +373,7 @@ store_get_all_values(Entries) ->
 
 %% @doc Retrieve keys for the records from record store.
 
--spec store_get_keys(gb_tree() | undefined) ->
+-spec store_get_keys(gb_trees:tree() | undefined) ->
   [statip_value:key()].
 
 store_get_keys(undefined = _Entries) ->

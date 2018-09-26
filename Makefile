@@ -1,4 +1,4 @@
-#!/usr/bin/make
+#!/usr/bin/make -f
 
 #-----------------------------------------------------------------------------
 
@@ -88,7 +88,9 @@ install-erlang:
 	install -m 644 examples/statetip.toml $(DESTDIR)/etc/statetip/statetip.toml.example
 
 install-python:
-	python setup.py install --prefix=/usr --exec-prefix=/usr$(if $(DESTDIR), --root=$(DESTDIR))
+	python setup.py install --install-purelib='/usr/lib/python$$py_version_short/dist-packages/' \
+		 --install-scripts='/usr/bin/' --root=$(DESTDIR)
+
 
 #-----------------------------------------------------------------------------
 # vim:ft=make

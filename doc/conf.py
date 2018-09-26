@@ -7,7 +7,7 @@
 project = u'StateTip'
 #copyright = u'...'
 
-release = '0.1.1'
+release = '0.1.2'
 version = '0.1'
 
 #-----------------------------------------------------------------------------
@@ -38,14 +38,8 @@ autoclass_content = 'both'
 # HTML output
 #-----------------------------------------------------------------------------
 
-import sphinx
-def ver(v):
-    return [int(i) for i in v.split('.')]
-
-if ver(sphinx.__version__) >= ver('1.3'):
-    html_theme = 'classic'
-else:
-    html_theme = 'default'
+html_theme = 'poole'
+html_theme_path = ['themes']
 
 pygments_style = 'sphinx'
 

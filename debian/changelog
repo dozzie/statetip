@@ -1,3 +1,9 @@
+statetip (0.1.2) stableD; urgency=medium
+
+  * Make it compilable on debian strech
+
+ -- pulina <pulina@k.pl>  Wed, 26 Sep 2018 05:30:04 -0400
+
 statetip (0.1.1-1) stable; urgency=low
 
   * Stability improvements for unreliable disk I/O.

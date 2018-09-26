@@ -78,7 +78,7 @@
 %%   Generic mapping with keys being of `Key' type and values being of `Value'
 %%   type.
 
--type mapping(_Key, _Value) :: gb_tree().
+-type mapping(_Key, _Value) :: gb_trees:tree().
 
 -type unrelated_values() :: {unrelated, mapping(statip_value:key(), #value{})}.
 %% Sub-container for {@type records()}, used for storing group of values of

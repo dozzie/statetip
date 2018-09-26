@@ -18,9 +18,8 @@ rebuilding the list from the stream.
 Contact and License
 -------------------
 
-StateTip is written by Stanislaw klekot <dozzie at jarowit.net>.
-The primary distribution point is
-<http://dozzie.jarowit.net/trac/wiki/StateTip>.
+StateTip is written by Stanislaw Klekot <dozzie at jarowit.net>.
+The primary distribution point is <http://seismometer.net/>.
 
 StateTip is distributed under GNU GPL v3 license. See LICENSE file for
 details.
