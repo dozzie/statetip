@@ -20,6 +20,7 @@
     %{configure, mfa()},
     {senders, [{"localhost", 3012}]},
     {readers, [{"localhost", 3082}]},
+    {senders_tcp_buffer_size, 16384}, % 16kB
     %{state_dir, "/var/lib/statetip"},
     {compaction_size, 10485760}, % 10MB, about 1 hour at 2.5kB/s
     {log_handlers, []}, % for statip_log; list of `{Module :: atom(), Args :: term()}'

@@ -1,0 +1,6 @@
+_versions       export-ignore
+.gitattributes  export-ignore
+.gitignore      export-ignore
+doc/.gitignore  export-ignore
+tests/data/.gitignore         export-ignore
+tests/data/replay/.gitignore  export-ignore

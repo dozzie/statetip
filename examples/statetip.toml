@@ -7,6 +7,8 @@
 #listen = ["*:3012"]
 # default expiry time (seconds) for incoming events
 #default_expiry = 43200
+# size of TCP buffer, which sets the maximum size of a single message
+#buffer_size = 16384
 
 [readers]
 # where to expose state to be read using HTTP API
