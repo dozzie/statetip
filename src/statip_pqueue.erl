@@ -16,7 +16,7 @@
 
 -record(pqueue, {
   lowest = none :: {priority(), entry()} | none,
-  mapping = gb_sets:new() :: gb_set()
+  mapping = gb_sets:new() :: gb_sets:set()
 }).
 
 -type pqueue() :: #pqueue{}.

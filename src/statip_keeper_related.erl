@@ -30,8 +30,8 @@
 -record(state, {
   group_name :: statip_value:name(),
   group_origin :: statip_value:origin(),
-  current_entries  :: gb_tree(), % statip_value:key() -> #value{}
-  previous_entries :: gb_tree(), % statip_value:key() -> #value{}
+  current_entries  :: gb_trees:tree(), % statip_value:key() -> #value{}
+  previous_entries :: gb_trees:tree(), % statip_value:key() -> #value{}
   expires :: statip_value:timestamp()
 }).
 
